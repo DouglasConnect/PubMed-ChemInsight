@@ -1,12 +1,14 @@
-import os
-import time
-import logging
-import requests
+import base64
 import datetime
 import logging
+import os
+import smtplib
 import time
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from io import BytesIO
-import base64
 from itertools import product
 from urllib.parse import quote
 
@@ -15,13 +17,6 @@ import requests
 import streamlit as st
 from Bio import Entrez
 from metapub import FindIt, PubMedFetcher
-from itertools import product
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-from email.mime.text import MIMEText
-from io import BytesIO
 
 pd.set_option("display.max_colwidth", 1)
 
@@ -85,16 +80,16 @@ st.sidebar.title("Configuration")
 # Ask for Email and NCBI API Key
 # email = st.sidebar.text_input("📧 Enter your email")
 # api_key = st.sidebar.text_input("🔑 Enter your NCBI API key", type="password")
-st.sidebar.markdown(
-    """
-    <div style="text-align: left;">
-        <p style="font-size:14px; color:black;">
-            <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Instructions for creating NCBI API key</a>
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# st.sidebar.markdown(
+#     """
+#     <div style="text-align: left;">
+#         <p style="font-size:14px; color:black;">
+#             <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Instructions for creating NCBI API key</a>
+#         </p>
+#     </div>
+#     """,
+#     unsafe_allow_html=True,
+# )
 top_n = st.sidebar.slider("Select number of top synonyms per compound", 1, 10, 2)
 retmax = st.sidebar.slider(
     "Maximum number of PubMed articles to retrieve", 100, 1000, 100
@@ -117,12 +112,6 @@ st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 # Sidebar for Configuration
 st.sidebar.markdown(
     """
-<<<<<<< HEAD
-    <div style="text-align: left;">
-        <p style="font-size:14px; color:black;">
-            <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Instructions for creating NCBI API key</a>
-        </p>
-=======
     <div style="display: flex; align-items: center; justify-content: left;">
         <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
             <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo" style="width:40px; height:40px; margin-right: 10px;">
@@ -130,7 +119,6 @@ st.sidebar.markdown(
         <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
             <p style="font-size: 16px; font-weight: bold; color: black; margin: 0;">@asmaa-a-abdelwahab</p>
         </a>
->>>>>>> 72e25d73 (Update logo&Sidebar)
     </div>
     """,
     unsafe_allow_html=True,
@@ -320,18 +308,12 @@ if st.button("🚀 Launch Search"):
     else:
         st.info("⏳ Starting article retrieval process...")
         helper = CompoundResearchHelper()  # email, api_key
-<<<<<<< HEAD
-
-        # List to store DataFrames for each compound
-        all_articles = []
-=======
->>>>>>> 72e25d73 (Update logo&Sidebar)
 
         # List to store DataFrames for each compound
         all_articles = []
 
         for compound in compounds_list:
-            st.info(f"🔍 Processing compound: {compound}")
+            st.info(f"Processing compound: {compound}")
 
             # Ensure that the helper.articleList is reset before processing each compound
             helper.articleList = []  # Clear the article list before processing a new compound
@@ -398,3 +380,5 @@ if st.button("🚀 Launch Search"):
             st.success(f"✔️ Combined articles saved to 'combined_pubmed_articles.csv'")
         else:
             st.warning("No articles found for any of the compounds.")
+
+        st.info("✅ Done!")
