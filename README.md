@@ -21,6 +21,8 @@ The app leverages several key technologies and data sources to retrieve relevant
 
 ## Installation
 
+### Option 1: Local Installation
+
 1. **Clone the Repository:**
 
    ```bash
@@ -44,12 +46,29 @@ The app leverages several key technologies and data sources to retrieve relevant
 4. **Run the App:**
 
    ```bash
-   streamlit run pubmed_retriever.py
+   streamlit run app.py
    ```
+
+### Option 2: Running with Docker
+
+1. **Build the Docker Image:**
+
+   ```bash
+   docker build -t pubmed-retriever .
+   ```
+
+2. **Run the Docker Container:**
+
+   ```bash
+   docker run -p 8501:8501 pubmed-retriever
+   ```
+
+3. **Access the App:**  
+   Open a browser and go to `http://localhost:8501` to view and interact with the application.
 
 ## Usage
 
-1. **Start the Application:** Open a terminal and run `streamlit run pubmed_retriever.py`.
+1. **Start the Application:** Open a terminal and run `streamlit run app.py` locally or launch the Docker container.
 2. **Input Section:** 
    - **Compounds:** Enter compounds, each on a separate line.
    - **Genes:** (Optional) Enter genes, each on a separate line.
@@ -74,6 +93,35 @@ The app leverages several key technologies and data sources to retrieve relevant
 - **Pandas**: Data analysis and manipulation
 - **BioPython**: To interact with the NCBI databases
 - **Metapub**: Fetch and process PubMed articles
+
+## Docker Setup
+
+The Dockerfile provided in this repository allows you to build and run the application in a containerized environment. Follow the steps below to use Docker:
+
+1. **Build the Docker Image:**
+
+   ```bash
+   docker build -t pubmed-retriever .
+   ```
+
+2. **Run the Docker Container:**
+
+   ```bash
+   docker run -p 8501:8501 pubmed-retriever
+   ```
+
+3. **Access the App:**  
+   Go to `http://localhost:8501` in your web browser.
+
+### Dockerfile Overview
+
+The Dockerfile uses a slim Python 3.9 base image and performs the following steps:
+
+- Sets up a working directory.
+- Copies the application code to the container.
+- Installs the required Python packages.
+- Exposes port `8501` for the Streamlit app.
+- Runs the app on container startup using the Streamlit command.
 
 ## Contribution
 
