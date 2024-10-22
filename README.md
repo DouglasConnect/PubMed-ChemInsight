@@ -1,7 +1,3 @@
-Here's a well-structured README for your application:
-
----
-
 # 🧬 PubMed Retriever: Investigate Compound Interactions
 
 **PubMed Retriever** is a Streamlit-based application designed to help researchers explore compound-gene interactions through comprehensive literature searches on PubMed. The tool facilitates the retrieval and analysis of scientific articles by querying combinations of compounds and genes, while also allowing the inclusion of specific keywords to refine the search.
@@ -62,6 +58,14 @@ The app leverages several key technologies and data sources to retrieve relevant
 4. **Launch the Search:** Click on **"🚀 Launch Search"** to start the retrieval process.
 5. **View and Export Results:** After processing, results will be displayed in a tabular format. You can export individual compound results or the combined results to CSV.
 
+## Screenshots
+
+1. **Application Input Page:**
+   ![Application Input Page](images/1.png)
+
+2. **Search Results Page:**
+   ![Search Results Page](images/2.png)
+
 ## Dependencies
 
 - **Python 3.7+**
@@ -70,10 +74,6 @@ The app leverages several key technologies and data sources to retrieve relevant
 - **Pandas**: Data analysis and manipulation
 - **BioPython**: To interact with the NCBI databases
 - **Metapub**: Fetch and process PubMed articles
-
-## Example Screenshots
-
-> *Include relevant screenshots of the application here to showcase the UI and key features.*
 
 ## Contribution
 
