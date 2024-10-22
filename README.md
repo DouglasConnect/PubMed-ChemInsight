@@ -131,9 +131,6 @@ Feel free to fork the repository and submit pull requests. If you encounter any 
 
 This project is licensed under the GPL-3.0 License. See the [LICENSE](./LICENSE) file for details.
 
-## Acknowledgements
-
-Special thanks to the creators of [Streamlit](https://streamlit.io/), [PubMed API](https://pubmed.ncbi.nlm.nih.gov/), and the [BioPython](https://biopython.org/) community for providing valuable resources.
 
 ## Contact
 
