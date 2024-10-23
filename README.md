@@ -131,7 +131,6 @@ Feel free to fork the repository and submit pull requests. If you encounter any 
 
 This project is licensed under the GPL-3.0 License. See the [LICENSE](./LICENSE) file for details.
 
-
 ## Contact
 
 For any queries or assistance, please reach out through the repository's issue tracker or contact [@asmaa-a-abdelwahab](https://github.com/asmaa-a-abdelwahab).
