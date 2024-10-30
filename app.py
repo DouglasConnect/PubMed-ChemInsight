@@ -1,13 +1,9 @@
+import re
 import base64
 import datetime
 import logging
 import os
-import smtplib
 import time
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from io import BytesIO
 from itertools import product
 from urllib.parse import quote
@@ -20,33 +16,37 @@ from metapub import FindIt, PubMedFetcher
 
 pd.set_option("display.max_colwidth", 1)
 
-# Streamlit App Setup
+st.set_page_config(page_title="PubMed ChemInsight", page_icon="🔬")
+# Streamlit App Setup 📚
 st.markdown(
     """
     <div style="text-align: center;">
-        <h1>🧬 --- PubMed Retriever --- 🧬\nInvestigate Compound Interactions</h1>
+        <h1>⚛️ -- PubMed ChemInsight -- ⚛️\nUnlock Insights from PubMed</h1>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
 st.markdown("""
-    This tool allows you to search PubMed for combinations of compounds and genes. 
-    Results will be processed and displayed here.
+    This tool allows you to search PubMed for Scientific Articles Specific to your Compounds of Interest.
 """)
 
 # Streamlit Input for User (Main Section)
-compounds_input = st.text_area("🧪 Enter Compounds (One Compound per Line)")
+compounds_input = st.text_area(
+    "🧪 Enter Compounds (One Chemical Name or CAS Number per Line)"
+)
 compounds_list = [
     compound.strip() for compound in compounds_input.split("\n") if compound.strip()
 ]
 
-genes_input = st.text_area("🧬 Enter Genes (One Gene per Line) (Optional)")
+genes_input = st.text_area(
+    "🧬 Enter Interaction Targets (One Target per Line) (Optional)"
+)
 genes = [gene.strip() for gene in genes_input.split("\n") if gene.strip()]
 
 # New input for additional keywords from user
 additional_keywords_input = st.text_area(
-    "🔗 Enter Relationship Keywords (One Keyword per Line) (Optional)"
+    "🔗 Enter Other Keywords (One Keyword per Line) (Optional)"
 )
 additional_keywords_list = [
     keyword.strip()
@@ -64,36 +64,37 @@ additional_condition = (
 file_ = open("images/logo.png", "rb").read()
 base64_image = base64.b64encode(file_).decode("utf-8")
 
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 st.sidebar.markdown(
     f"""
-    <div style="float: left;">
+    <div style="display: flex; align-items: center; justify-content: center;">
         <img src="data:image/png;base64,{base64_image}" alt="Logo" width="200" style="border-radius: 5px;">
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-
 # Sidebar for input fields
-st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-st.sidebar.title("Configuration")
-# Ask for Email and NCBI API Key
-# email = st.sidebar.text_input("📧 Enter your email")
-# api_key = st.sidebar.text_input("🔑 Enter your NCBI API key", type="password")
-# st.sidebar.markdown(
-#     """
-#     <div style="text-align: left;">
-#         <p style="font-size:14px; color:black;">
-#             <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Instructions for creating NCBI API key</a>
-#         </p>
-#     </div>
-#     """,
-#     unsafe_allow_html=True,
-# )
-top_n = st.sidebar.slider("Select number of top synonyms per compound", 1, 10, 2)
-retmax = st.sidebar.slider(
-    "Maximum number of PubMed articles to retrieve", 100, 1000, 100
+st.sidebar.markdown(
+    """
+    <hr>
+    """,
+    unsafe_allow_html=True,
 )
+# st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+# st.sidebar.title("Configuration")
+# Ask for the user's email
+email = st.sidebar.text_input("📧 Enter your email address")
+st.sidebar.write("\n\n\n\n\n\n\n\n\n")
+top_n = st.sidebar.slider("Select number of top synonyms per compound", 0, 10, 2)
+st.sidebar.write("\n\n\n\n\n\n\n\n\n")
+top_recent_n = st.sidebar.slider("Select the number of top recent articles", 0, 100, 10)
+st.sidebar.write("\n\n\n\n\n\n\n\n\n")
+bottom_recent_n = st.sidebar.slider(
+    "Select the number of bottom recent articles", 0, 100, 10
+)
+st.sidebar.write("\n\n\n\n\n\n\n\n\n")
 start_year = st.sidebar.number_input(
     "Start Year",
     value=2000,
@@ -101,6 +102,7 @@ start_year = st.sidebar.number_input(
     min_value=1900,
     max_value=datetime.datetime.now().year,
 )
+st.sidebar.write("\n\n\n\n\n\n\n\n\n")
 end_year = st.sidebar.number_input(
     "End Year",
     value=datetime.datetime.now().year,
@@ -108,11 +110,22 @@ end_year = st.sidebar.number_input(
     min_value=1900,
     max_value=datetime.datetime.now().year,
 )
-st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
 # Sidebar for Configuration
 st.sidebar.markdown(
     """
-    <div style="display: flex; align-items: center; justify-content: left;">
+    <hr>
+    <div style="text-align: center;">
+        <p style="font-size: 12px; color: gray;">
+            © 2024 Edelweiss Connect - Developed by Asmaa A. Abdelwahab
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.sidebar.markdown(
+    """
+    <div style="display: flex; align-items: center; justify-content: center;">
         <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
             <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo" style="width:40px; height:40px; margin-right: 10px;">
         </a>
@@ -128,17 +141,66 @@ st.sidebar.markdown(
 # Cache to prevent redundant queries
 @st.cache_data(show_spinner=False)
 def cache_synonyms(compound):
-    return CompoundResearchHelper().most_common_synonyms(
-        compound, top_n
-    )  # email, api_key
+    return CompoundResearchHelper().most_common_synonyms(compound, top_n)
+
+
+def cas_to_iupac(cas_number):
+    """
+    Converts a CAS number to an IUPAC name using the CACTUS Chemical Identifier Resolver service.
+
+    Parameters:
+    cas_number (str): The CAS number to be converted.
+
+    Returns:
+    str: The corresponding IUPAC name or an error message if the conversion fails.
+    """
+    try:
+        # Construct the URL for the CACTUS service with CAS number and request for IUPAC name
+        url = f"https://cactus.nci.nih.gov/chemical/structure/{cas_number}/iupac_name"
+
+        # Send a GET request to the URL
+        response = requests.get(url)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            return response.text.strip()
+        else:
+            return f"Error: Unable to retrieve IUPAC name (HTTP Status Code: {response.status_code})"
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
+
+
+def is_cas_number(compound):
+    """Check if the provided string matches the CAS number format."""
+    return bool(re.match(r"^\d{2,7}-\d{2}-\d$", compound))
+
+
+def resolve_compound_name(compound):
+    """
+    Resolve a compound name. If the compound is a CAS number, convert it to the IUPAC name.
+
+    Parameters:
+    compound (str): The compound input by the user.
+
+    Returns:
+    str: The resolved compound name.
+    """
+    if is_cas_number(compound):
+        iupac_name = cas_to_iupac(compound)
+        if "Error" in iupac_name or "An error occurred" in iupac_name:
+            st.warning(f"Failed to convert CAS number '{compound}': {iupac_name}")
+            return compound  # Return the original CAS number if conversion fails
+        else:
+            st.info(f"CAS number '{compound}' converted to IUPAC name '{iupac_name}'")
+            return iupac_name
+    else:
+        return compound
 
 
 class CompoundResearchHelper:
     """A class to fetch compound synonyms and retrieve relevant articles from PubMed."""
 
-    def __init__(self, retmax=1000):  # email, api_key,
-        # Entrez.email = email  # Set user-provided email
-        # Entrez.api_key = api_key  # Set user-provided NCBI API key
+    def __init__(self, retmax=1000):
         self.pubmed = PubMedFetcher()
         self.retmax = retmax
         self.synonym_data = {}
@@ -181,14 +243,11 @@ class CompoundResearchHelper:
         synonym_frequency = {}
         for synonym in synonyms:
             try:
-                # Encode the synonym to make it URL safe and wrap it in quotes for PubMed
                 encoded_synonym = quote(f'"{synonym}"')
                 handle = Entrez.esearch(
                     db="pubmed",
                     term=encoded_synonym,
                     retmax=0,
-                    api_key=Entrez.api_key,
-                    email=Entrez.email,
                 )
                 record = Entrez.read(handle)
                 synonym_frequency[synonym] = int(record.get("Count", 0))
@@ -196,7 +255,7 @@ class CompoundResearchHelper:
                 time.sleep(0.3)  # Respect PubMed rate limit
             except Exception as e:
                 logging.error(f"Error fetching frequency for {synonym}: {e}")
-                continue  # Skip this synonym and move to the next one
+                continue
         return synonym_frequency
 
     def most_common_synonyms(self, compound_name, top_n=5):
@@ -252,30 +311,56 @@ class CompoundResearchHelper:
                     "year",
                 ]
                 article_dict = {k: article_dict.get(k, None) for k in keys_to_keep}
-
-                try:
-                    time.sleep(1)
-                    src = FindIt(pmid, retry_errors=True)
-                    if src and src.url:
-                        article_dict["url"] = src.url
-                except Exception as inner_e:
-                    logging.warning(
-                        f"Warning while trying to find URL for {pmid}: {inner_e}"
-                    )
-
                 articles.append(article_dict)
             except Exception as e:
                 logging.error(f"Error processing article with pmid {pmid}: {e}")
         return articles
 
-    def process_compound_and_genes(
-        self, compound, genes, start_year, end_year, additional_condition
-    ):
-        """Process a single compound and multiple genes for synonym lookup and article fetching."""
-        logging.info(f"Processing compound: {compound}")
-        top_synonyms = cache_synonyms(compound)
+    def filter_articles_by_recent(self, df, top_n, bottom_n):
+        """Filter the top and bottom recent articles based on user input."""
+        if "year" in df.columns:
+            df["year"] = pd.to_numeric(df["year"], errors="coerce")
 
-        # Handle queries with or without genes
+        # Sort the dataframe by the 'year' column in descending order
+        df_sorted = df.sort_values(by="year", ascending=False)
+
+        # Convert unhashable columns (like lists and dictionaries) to strings
+        df_sorted = df_sorted.applymap(
+            lambda x: str(x) if isinstance(x, (list, dict)) else x
+        )
+
+        # Check for zero values and filter accordingly
+        top_recent = df_sorted.head(top_n) if top_n > 0 else pd.DataFrame()
+        bottom_recent = df_sorted.tail(bottom_n) if bottom_n > 0 else pd.DataFrame()
+
+        # Concatenate the results and drop duplicates based on specific columns (e.g., title and pmid)
+        filtered_df = pd.concat([top_recent, bottom_recent]).drop_duplicates(
+            subset=["title", "pmid"]
+        )
+
+        return filtered_df
+
+    def process_compound_and_genes(
+        self,
+        compound,
+        genes,
+        start_year,
+        end_year,
+        additional_condition,
+        top_n,
+        bottom_n,
+    ):
+        """Process a single compound and multiple interaction targets for synonym lookup and article fetching."""
+        logging.info(f"Processing compound: {compound}")
+
+        # Check if synonyms are enabled by checking if top_n is greater than zero
+        if top_n > 0:
+            top_synonyms = cache_synonyms(compound)
+        else:
+            # If top_n is zero, use only the original compound name
+            top_synonyms = [compound]
+
+        # Handle queries with or without interaction targets (genes)
         if genes:
             queries = [
                 f"({synonym}[Title/Abstract]) AND ({gene}[Title/Abstract]) {additional_condition}"
@@ -287,7 +372,7 @@ class CompoundResearchHelper:
                 for synonym in top_synonyms
             ]
 
-        # Fetch articles for each combination
+        # Fetch articles for each combination of synonym and interaction target
         for query in queries:
             self.articleList.extend(
                 self.fetch_articles(
@@ -295,90 +380,223 @@ class CompoundResearchHelper:
                 )
             )
 
-        # Return articles for the compound-gene combination
-        return self.articleList
+        # Create a DataFrame from the articles and filter them based on the user's input
+        if self.articleList:
+            df = pd.DataFrame(self.articleList)
+            df_filtered = self.filter_articles_by_recent(df, top_n, bottom_n)
+            return df_filtered
+        return pd.DataFrame()
 
 
 # Run when the user clicks the "Search" button
+def cas_to_iupac_pubchem(cas_number, retries=3, backoff_factor=2):
+    """
+    Converts a CAS number to an IUPAC name using the PubChem PUG-REST API.
+    Implements a retry mechanism with exponential backoff for handling temporary server errors (503).
+
+    Parameters:
+    cas_number (str): The CAS number to be converted.
+    retries (int): Number of times to retry the request in case of server errors.
+    backoff_factor (int): Factor by which the wait time increases after each retry.
+
+    Returns:
+    str: The corresponding IUPAC name or an error message if the conversion fails.
+    """
+    try:
+        # Construct the URL for the PubChem PUG-REST API to retrieve CID
+        cid_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{cas_number}/cids/JSON"
+
+        # Retry loop
+        for attempt in range(retries):
+            try:
+                cid_response = requests.get(cid_url)
+                cid_response.raise_for_status()  # Raise HTTPError for bad responses (4xx and 5xx)
+                cid_data = cid_response.json()
+                cid = cid_data.get("IdentifierList", {}).get("CID", [None])[0]
+
+                if not cid:
+                    return f"Error: No CID found for CAS number '{cas_number}'"
+
+                # Fetch the IUPAC name using the CID
+                iupac_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/property/IUPACName/JSON"
+                iupac_response = requests.get(iupac_url)
+                iupac_response.raise_for_status()
+                iupac_data = iupac_response.json()
+                iupac_name = (
+                    iupac_data.get("PropertyTable", {})
+                    .get("Properties", [{}])[0]
+                    .get("IUPACName", None)
+                )
+
+                if iupac_name:
+                    return iupac_name
+                else:
+                    return "Error: No IUPAC name found"
+
+            except requests.exceptions.HTTPError as http_err:
+                if cid_response.status_code == 503:  # Server busy or unavailable
+                    wait_time = backoff_factor**attempt
+                    st.warning(
+                        f"PubChem service temporarily unavailable. Retrying in {wait_time} seconds..."
+                    )
+                    time.sleep(wait_time)  # Wait before retrying
+                else:
+                    return f"HTTP error occurred: {http_err}"
+
+        # If all retries fail, return a final error message
+        return "Error: PubChem service unavailable after multiple attempts."
+
+    except Exception as err:
+        return f"An error occurred: {str(err)}"
+
+
+def resolve_compound_name(compound):
+    """
+    Resolve a compound name. If the compound is a CAS number, attempt to convert it to the IUPAC name.
+    It tries PubChem first and falls back to CACTUS if needed.
+
+    Parameters:
+    compound (str): The compound input by the user.
+
+    Returns:
+    str: The resolved compound name.
+    """
+    if is_cas_number(compound):
+        # Try converting using PubChem first
+        iupac_name = cas_to_iupac_pubchem(compound)
+        if "Error" in iupac_name or "An error occurred" in iupac_name:
+            st.warning(
+                f"PubChem failed to convert CAS number '{compound}': {iupac_name}"
+            )
+            # Try converting using CACTUS as a fallback
+            iupac_name = cas_to_iupac(compound)
+            if "Error" in iupac_name or "An error occurred" in iupac_name:
+                st.warning(
+                    f"CACTUS also failed to convert CAS number '{compound}': {iupac_name}"
+                )
+                return compound  # Return the original CAS number if conversion fails
+            else:
+                st.info(
+                    f"CAS number '{compound}' converted to IUPAC name '{iupac_name}' using CACTUS"
+                )
+                return iupac_name
+        else:
+            st.info(
+                f"CAS number '{compound}' converted to IUPAC name '{iupac_name}' using PubChem"
+            )
+            return iupac_name
+    else:
+        return compound
+
+
+def display_summary():
+    """
+    Display a summary of the user-defined configurations.
+    """
+    st.markdown("### Summary of Your Selections")
+
+    st.markdown(f"**Email Address:** `{email if email else 'Not Provided'}`")
+
+    compounds_str = ", ".join(compounds_list)
+    st.markdown(
+        f"**Compounds List:** `{compounds_str if compounds_str else 'Not Provided'}`"
+    )
+
+    if genes:
+        genes_str = ", ".join(genes)
+        st.markdown(f"**Interaction Targets List:** `{genes_str}`")
+    else:
+        st.markdown("**Interaction Targets List:** `Not Provided`")
+
+    if additional_keywords_list:
+        keywords_str = ", ".join(additional_keywords_list)
+        st.markdown(f"**Additional Keywords:** `{keywords_str}`")
+    else:
+        st.markdown("**Additional Keywords:** `Not Provided`")
+
+    # Show the number of synonyms to be retrieved or indicate that no synonyms are selected
+    if top_n > 0:
+        st.markdown(f"**Top Synonyms per Compound:** `{top_n}`")
+    else:
+        st.markdown(f"**Top Synonyms per Compound:** `Not Selected`")
+
+    st.markdown(
+        f"**Number of Top Recent Articles:** `{top_recent_n if top_recent_n > 0 else 'Not Selected'}`"
+    )
+    st.markdown(
+        f"**Number of Bottom Recent Articles:** `{bottom_recent_n if bottom_recent_n > 0 else 'Not Selected'}`"
+    )
+    st.markdown(f"**Year Range:** `{start_year} to {end_year}`")
+
+    st.markdown("---")  # A horizontal line to separate the summary from the results
+
+
+# Main Section for Processing Compounds
 if st.button("🚀 Launch Search"):
-    # if not email or not api_key:
-    #     st.error("Please provide both email and NCBI API key.")
+    # Validate the email input using basic checks
+    if email:
+        if "@" not in email or "." not in email.split("@")[-1]:
+            st.error("Please enter a valid email address.")
+        else:
+            st.success(f"Email address '{email}' is valid!")
+
+    # Ensure the email is set for Entrez
+    Entrez.email = email
+
     if not compounds_list:
         st.error("Please fill out the compound field.")
     else:
+        # Display the summary of user-defined configurations
+        display_summary()
+
         st.info("⏳ Starting article retrieval process...")
-        helper = CompoundResearchHelper()  # email, api_key
+        helper = CompoundResearchHelper()
 
-        # List to store DataFrames for each compound
         all_articles = []
-
         for compound in compounds_list:
-            st.info(f"Processing compound: {compound}")
+            resolved_compound = resolve_compound_name(compound)
+            st.info(f"Processing compound: {resolved_compound}")
 
-            # Ensure that the helper.articleList is reset before processing each compound
-            helper.articleList = []  # Clear the article list before processing a new compound
+            helper.articleList = []
 
-            # Retrieve articles for the current compound
-            articles = helper.process_compound_and_genes(
-                compound, genes, start_year, end_year, additional_condition
+            articles_df = helper.process_compound_and_genes(
+                resolved_compound,
+                genes,
+                start_year,
+                end_year,
+                additional_condition,
+                top_recent_n,
+                bottom_recent_n,
             )
 
-            # Prepare DataFrame to save and display for each compound
-            if articles:
-                df = pd.DataFrame(articles)
+            if not articles_df.empty:
+                articles_df.reset_index(drop=True, inplace=True)
 
-                # Convert any unhashable columns (e.g., lists, dictionaries) to strings
-                df = df.applymap(lambda x: str(x) if isinstance(x, (list, dict)) else x)
-
-                # Drop duplicates based on specific columns
-                df = df.drop_duplicates(subset=["title", "pmid"], keep="first")
-
-                # Convert 'year' column to numeric, ignoring errors
-                if "year" in df.columns:
-                    df["year"] = pd.to_numeric(df["year"], errors="coerce")
-
-                df.reset_index(drop=True, inplace=True)
-
-                # Save to a buffer (in-memory file)
                 output = BytesIO()
-                df.to_csv(output, index=False)
+                articles_df.to_csv(output, index=False)
                 output.seek(0)
 
-                # Save each compound's articles to a CSV
-                filename = f"{compound}_articles.csv"
+                filename = f"{resolved_compound}_filtered_articles.csv"
                 with open(filename, "wb") as f:
                     f.write(output.read())
 
-                # Show success for compound
-                st.success(f"✔️ Articles processed for compound: {compound}")
+                st.success(f"✔️ Articles processed for compound: {resolved_compound}")
+                st.dataframe(articles_df)
 
-                # Optionally display the DataFrame for the compound
-                st.dataframe(df)
-
-                # Append the DataFrame to the list
-                all_articles.append(df)
-
+                all_articles.append(articles_df)
             else:
-                st.warning(f"No articles found for compound: {compound}")
+                st.warning(f"No articles found for compound: {resolved_compound}")
 
-        # After processing all compounds, combine all DataFrames
         if all_articles:
             combined_df = pd.concat(all_articles, ignore_index=True)
-
-            # Drop duplicates across all combined articles
-            combined_df = combined_df.drop_duplicates(
-                subset=["title", "pmid"], keep="first"
+            combined_df.drop_duplicates(
+                subset=["title", "pmid"], keep="first", inplace=True
             )
-
-            # Save the combined DataFrame to a CSV
             combined_df.to_csv("combined_pubmed_articles.csv", index=False)
 
-            # Show the combined DataFrame in Streamlit
             st.subheader("Combined Articles for All Compounds")
             st.dataframe(combined_df)
-
             st.success(f"✔️ Combined articles saved to 'combined_pubmed_articles.csv'")
         else:
             st.warning("No articles found for any of the compounds.")
-
         st.info("✅ Done!")
