@@ -1,6 +1,6 @@
 # ⚛️ PubMed ChemInsight: Unlock Insights from PubMed
 
-**PubMed Retriever** is a Streamlit-based application designed to help researchers explore compound-gene interactions through comprehensive literature searches on PubMed. The tool facilitates the retrieval and analysis of scientific articles by querying combinations of compounds and genes, while also allowing the inclusion of specific keywords to refine the search.
+**PubMed ChemInsight** is an intuitive, Streamlit-based application tailored for researchers to efficiently retrieve and analyze scientific literature related to their compounds of interest. The tool enables comprehensive querying of PubMed by combining specified compounds with relevant interaction targets, and allows the inclusion of custom keywords to refine search results, highlight specific interactions, or explore particular relationships. This streamlined approach helps researchers quickly access relevant studies, enhancing their ability to draw meaningful insights from the scientific literature.
 
 ## Features
 
