@@ -1,0 +1,103 @@
+# This workflow will:
+
+# 1. Build the docker container(s)
+# 3. Publish the container(s) to Google Container Registry
+# 3. Update the deployment configuration
+
+# To configure this workflow:
+
+# 1. Set up secrets in your workspace:
+#   - GKE_PROJECT with the name of the project
+#   - GKE_EMAIL with the service account email
+#   - GKE_KEY (base64 encoded) with the service account key
+# 2. Set any values in the env sections
+---
+    # ##
+    name: Build and Deploy to GKE
+    
+    on:
+      push:
+        branches:
+        - main
+    
+    env:
+      GIT_SHA: ${{ github.sha }}
+      GIT_REF: ${{ github.ref }}
+      GKE_PROJECT: ${{ secrets.GKE_PROJECT }}
+      GKE_ZONE: europe-west1-d
+      GKE_CLUSTER: cluster-1
+      PROJECT: pubmed-cheminsight
+      
+    jobs:
+      build-django-app:
+        name: Build Django
+        runs-on: ubuntu-latest
+        env:
+          IMAGE: django
+    
+        steps:
+        
+        - name: Checkout the repository
+          uses: actions/checkout@master
+    
+        - name: Setup Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: '3.8'
+    
+        - name: Authenticate with GC
+          uses: google-github-actions/setup-gcloud@v0.2.0
+          with:
+            version: '318.0.0'
+            service_account_email: ${{ secrets.GKE_EMAIL }}
+            service_account_key: ${{ secrets.GKE_KEY }}
+            
+        - name: Configure docker to use the gcloud command-line tool as a credential helper
+          run: |
+            gcloud auth configure-docker
+    
+        - name: Pull the latest Docker image
+          run: |
+            docker pull eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest || true
+        - name: Build the Docker image
+          run: |
+            docker build \
+              --pull \
+              --file Dockerfile \
+              --cache-from eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest \
+              --tag eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest \
+              --tag eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:$GIT_SHA \
+              --build-arg GIT_REF=${GIT_REF##*/} \
+              --build-arg GIT_SHA=$GIT_SHA .
+        - name: Push the Docker image to Google Container Registry
+          run: |
+            docker push --all-tags eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE
+      update-deployment:
+        name: Update the deployment
+        runs-on: ubuntu-latest
+        needs: [build-django-app]
+        env:
+          GIT_PAT: ${{ secrets.GIT_PAT }}
+    
+        steps:
+    
+        - name: Checkout the deployment repository
+          run: |
+            git clone https://$GIT_PAT@github.com/DouglasConnect/$PROJECT-deployment.git deployment
+            
+        - name: Set latest images in the kustomize deployment
+          working-directory: deployment/production
+          run: |
+            curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+            kustomize edit set image eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/django:$GIT_SHA
+                                   
+    
+        - name: Commit and push the deployment
+          working-directory: deployment/production
+          run: |
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add kustomization.yaml
+            git commit -m "Update docker images to $GIT_SHA"
+            git push https://$GIT_PAT@github.com/DouglasConnect/$PROJECT-deployment.git
+    
