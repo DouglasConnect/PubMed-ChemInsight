@@ -129,10 +129,6 @@ The Dockerfile uses a slim Python 3.9 base image and performs the following step
 
 Feel free to fork the repository and submit pull requests. If you encounter any issues or have suggestions, please create an issue in the repository.
 
-## License
-
-This project is licensed under the GPL-3.0 License. See the [LICENSE](./LICENSE) file for details.
-
 ## Contact
 
 For any queries or assistance, please reach out through the repository's issue tracker or contact [@asmaa-a-abdelwahab](https://github.com/asmaa-a-abdelwahab).
