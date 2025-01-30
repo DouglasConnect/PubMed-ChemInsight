@@ -1,134 +1,151 @@
-# ⚛️ PubMed ChemInsight: Unlock Insights from PubMed ⚛️ [![License: CC BY-NC 1.0](https://img.shields.io/badge/License-CC%20BY--NC%201.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/1.0/)
+# ⚛️ PubMed ChemInsight: Unlock Insights from PubMed ⚛️ 
+[![License: CC BY-NC 1.0](https://img.shields.io/badge/License-CC%20BY--NC%201.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/1.0/)
 
+**PubMed ChemInsight** is an advanced **Streamlit-based** application designed for researchers to efficiently **retrieve, analyze, and explore scientific literature** related to their **compounds of interest**. It allows querying **PubMed** while incorporating **interaction targets, compound synonyms, and additional keywords** to refine search results.
 
-**PubMed ChemInsight** is an intuitive, Streamlit-based application tailored for researchers to efficiently retrieve and analyze scientific literature related to their compounds of interest. The tool enables comprehensive querying of PubMed by combining specified compounds with relevant interaction targets, and allows the inclusion of custom keywords to refine search results, highlight specific interactions, or explore particular relationships. This streamlined approach helps researchers quickly access relevant studies, enhancing their ability to draw meaningful insights from the scientific literature.
+## **✨ Features**
+- **🔍 Multi-Query Search**: Enter multiple compounds, genes, and additional keywords to refine search results.
+- **🧪 Compound Synonyms Expansion**: Fetches compound synonyms from **PubChem** to ensure broader searches.
+- **📆 Advanced Filtering**: Search for articles within a **custom year range**.
+- **📊 Data Processing & Deduplication**: Uses **Pandas** to clean and filter results, removing duplicates.
+- **📄 CSV Export**: Download retrieved PubMed articles as a CSV file.
+- **🚀 Fully Automated Workflow**: Optimized for **fast queries and API rate management**.
 
-## Features
+---
 
-- **Flexible Input Options:** Enter multiple compounds and genes of interest. Additionally, specify keywords to refine the search.
-- **Automated Synonym Matching:** Automatically finds the most common synonyms for each compound to broaden the search.
-- **Advanced Filtering:** Search articles within a specified year range.
-- **Comprehensive Data Handling:** Filters duplicate results and handles missing or inconsistent data.
-- **CSV Export:** Export search results to CSV for further analysis.
+## **🛠️ How It Works**
+The app integrates multiple technologies to **retrieve, process, and display** scientific literature:
 
-## How It Works
+| **Component**         | **Functionality** |
+|----------------------|----------------|
+| **NCBI PubMed API**  | Retrieves relevant articles based on user queries. |
+| **PubChem API**      | Fetches **compound synonyms** to enhance search results. |
+| **Streamlit**        | Provides an interactive UI for input, processing, and visualization. |
+| **Pandas**          | Cleans, filters, and structures retrieved data. |
+| **Biopython (Entrez)** | Handles PubMed article requests. |
+| **Metapub**         | Fetches metadata for PubMed articles efficiently. |
 
-The app leverages several key technologies and data sources to retrieve relevant PubMed articles:
+---
 
-- **PubMed Integration:** Uses the NCBI PubMed API to fetch article metadata based on input criteria.
-- **PubChem Synonym Finder:** Retrieves common synonyms for the input compounds from PubChem to expand the search.
-- **Streamlit:** Provides a clean and interactive user interface for input, configuration, and output visualization.
-- **Data Processing:** Combines and filters articles using Pandas to ensure accuracy and avoid duplicate entries.
+## **📥 Installation**
 
-## Installation
-
-### Option 1: Local Installation
-
+### **Option 1: Local Installation**
 1. **Clone the Repository:**
-
    ```bash
-   git clone https://github.com/your-repository/pubmed-retriever.git
-   cd pubmed-retriever
+   git clone https://github.com/your-repository/pubmed-cheminsight.git
+   cd pubmed-cheminsight
    ```
 
-2. **Set Up Virtual Environment:**
-
+2. **Create a Virtual Environment:**
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. **Install Dependencies:**
-
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Run the App:**
-
    ```bash
    streamlit run app.py
    ```
 
-### Option 2: Running with Docker
+---
 
+### **Option 2: Running with Docker**
 1. **Build the Docker Image:**
-
    ```bash
-   docker build -t pubmed-retriever .
+   docker build -t pubmed-cheminsight .
    ```
 
 2. **Run the Docker Container:**
-
    ```bash
-   docker run -p 8501:8501 pubmed-retriever
+   docker run -p 8501:8501 pubmed-cheminsight
    ```
 
 3. **Access the App:**  
-   Open a browser and go to `http://localhost:8501` to view and interact with the application.
+   Open a browser and go to:  
+   👉 `http://localhost:8501`
 
-## Usage
+---
 
-1. **Start the Application:** Open a terminal and run `streamlit run app.py` locally or launch the Docker container.
-2. **Input Section:** 
-   - **Compounds:** Enter compounds, each on a separate line.
-   - **Genes:** (Optional) Enter genes, each on a separate line.
-   - **Additional Keywords:** (Optional) Provide keywords to refine the search.
-3. **Configuration:** Use the sidebar to configure various settings like the number of top synonyms per compound, date range, and number of articles to retrieve.
-4. **Launch the Search:** Click on **"🚀 Launch Search"** to start the retrieval process.
-5. **View and Export Results:** After processing, results will be displayed in a tabular format. You can export individual compound results or the combined results to CSV.
+## **🚀 Usage**
+1. **Start the Application** (`streamlit run app.py` or launch Docker).
+2. **Input Section:**
+   - **🧪 Compounds:** Enter compounds (one per line).
+   - **🧬 Genes:** *(Optional)* Enter genes (one per line).
+   - **🔗 Additional Keywords:** *(Optional)* Provide keywords to refine the search.
+3. **Configure Settings:**
+   - Adjust the **number of synonyms**, **date range**, and **number of articles** using the sidebar.
+4. **Launch Search:** Click **"🚀 Launch Search"**.
+5. **View & Export Results:**  
+   - Results appear in a **tabular format**.
+   - Download the data as **CSV**.
 
-## Screenshots
+---
 
-1. **Application Input Page:**
-   ![Application Input Page](images/1.png)
+## **📷 Screenshots**
+### **1️⃣ Application Input Page**
+![Application Input Page](images/1.png)
 
-2. **Search Results Page:**
-   ![Search Results Page](images/2.png)
-   ![Search Results Page](images/3.png)
+### **2️⃣ Search Results Page**
+![Search Results Page](images/2.png)
+![Search Results Page](images/3.png)
 
-## Dependencies
+---
 
-- **Python 3.7+**
-- **Streamlit**: Web application framework for UI
-- **Requests**: HTTP library to make API calls
-- **Pandas**: Data analysis and manipulation
-- **BioPython**: To interact with the NCBI databases
-- **Metapub**: Fetch and process PubMed articles
+## **📦 Dependencies**
+This project requires **Python 3.7+** and the following libraries:
 
-## Docker Setup
+| 📦 Dependency | 🔧 Function |
+|--------------|------------|
+| `streamlit`  | UI & Web framework |
+| `requests`   | API calls to PubChem & PubMed |
+| `pandas`     | Data processing & structuring |
+| `biopython`  | NCBI Entrez interface |
+| `metapub`    | PubMed metadata retrieval |
 
-The Dockerfile provided in this repository allows you to build and run the application in a containerized environment. Follow the steps below to use Docker:
+**Install all dependencies with:**
+```bash
+pip install -r requirements.txt
+```
 
-1. **Build the Docker Image:**
+---
 
-   ```bash
-   docker build -t pubmed-retriever .
-   ```
+## **🐳 Docker Setup**
+This app can be run inside a **Docker container** for **better portability**.
 
-2. **Run the Docker Container:**
+### **1️⃣ Build the Docker Image**
+```bash
+docker build -t pubmed-cheminsight .
+```
 
-   ```bash
-   docker run -p 8501:8501 pubmed-retriever
-   ```
+### **2️⃣ Run the Container**
+```bash
+docker run -p 8501:8501 pubmed-cheminsight
+```
 
-3. **Access the App:**  
-   Go to `http://localhost:8501` in your web browser.
+### **3️⃣ Access the App**
+Go to 👉 `http://localhost:8501`
 
-### Dockerfile Overview
+#### **📌 Dockerfile Overview**
+- Uses **Python 3.9 Slim** base image.
+- Sets up a **virtual environment** inside the container.
+- Installs dependencies **from `requirements.txt`**.
+- Exposes port `8501` for Streamlit.
 
-The Dockerfile uses a slim Python 3.9 base image and performs the following steps:
+---
 
-- Sets up a working directory.
-- Copies the application code to the container.
-- Installs the required Python packages.
-- Exposes port `8501` for the Streamlit app.
-- Runs the app on container startup using the Streamlit command.
+## **🛠️ Contribution**
+Feel free to **fork the repository** and submit **pull requests**.  
+If you encounter issues, create a **GitHub issue** in the repository.
 
-## Contribution
+---
 
-Feel free to fork the repository and submit pull requests. If you encounter any issues or have suggestions, please create an issue in the repository.
+## **📞 Contact**
+For questions or feedback, contact the developer:
 
-## Contact
-
-For any queries or assistance, please reach out through the repository's issue tracker or contact [@asmaa-a-abdelwahab](https://github.com/asmaa-a-abdelwahab).
+[![GitHub: @asmaa-a-abdelwahab](https://img.shields.io/badge/GitHub-%40asmaa--a--abdelwahab-blue?logo=github)](https://github.com/asmaa-a-abdelwahab)
+```
