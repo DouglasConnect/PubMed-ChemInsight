@@ -1,4 +1,4 @@
-# ⚛️ PubMed ChemInsight: Unlock Insights from PubMed ⚛️ 
+# ⚛️ PubMed ChemInsight: Unlock Insights from PubMed
 [![License: CC BY-NC 1.0](https://img.shields.io/badge/License-CC%20BY--NC%201.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/1.0/)
 
 **PubMed ChemInsight** is an advanced **Streamlit-based** application designed for researchers to efficiently **retrieve, analyze, and explore scientific literature** related to their **compounds of interest**. It allows querying **PubMed** while incorporating **interaction targets, compound synonyms, and additional keywords** to refine search results.

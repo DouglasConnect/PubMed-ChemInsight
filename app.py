@@ -1,15 +1,12 @@
 import re
 import base64
 import datetime
-import logging
 import time
-from itertools import product
-
 import pandas as pd
 import requests
 import streamlit as st
 from Bio import Entrez
-from metapub import FindIt, PubMedFetcher
+from CompoundResearchHelper import CompoundResearchHelper
 
 pd.set_option("display.max_colwidth", 1)
 
@@ -145,160 +142,6 @@ st.sidebar.markdown(
 )
 
 
-class CompoundResearchHelper:
-    """A class to fetch compound synonyms and retrieve relevant articles from PubMed."""
-
-    def __init__(self, retmax=1000):
-        self.pubmed = PubMedFetcher()
-        self.retmax = retmax
-        self.articleList = []
-
-    def get_compound_synonyms(self, compound_name):
-        """Retrieve compound synonyms from PubChem."""
-        try:
-            cid_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{compound_name}/cids/JSON"
-            cid_response = requests.get(cid_url)
-            cid_response.raise_for_status()
-
-            cid_data = cid_response.json()
-            cid = cid_data.get("IdentifierList", {}).get("CID", [None])[0]
-            if not cid:
-                logging.warning(f"No CID found for {compound_name}")
-                return []
-
-            synonyms_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/synonyms/JSON"
-            synonyms_response = requests.get(synonyms_url)
-            synonyms_response.raise_for_status()
-
-            synonyms_data = synonyms_response.json()
-            all_synonyms = (
-                synonyms_data.get("InformationList", {})
-                .get("Information", [{}])[0]
-                .get("Synonym", [])
-            )
-            return all_synonyms or []
-
-        except requests.HTTPError as http_err:
-            logging.error(f"HTTP error occurred: {http_err}")
-        except Exception as err:
-            logging.error(f"An error occurred: {err}")
-        return []
-
-    def fetch_articles(self, search_term, retmax=1000, start_year=2000, end_year=None):
-        """Fetch articles' metadata from PubMed based on a given search term and date range."""
-        date_range = (
-            f' AND ("{start_year}/01/01"[PDat] : "{end_year}/12/31"[PDat])'
-            if end_year
-            else ""
-        )
-        full_search_term = f"{search_term}{date_range}"
-
-        try:
-            pmids = self.pubmed.pmids_for_query(
-                full_search_term, retmax=retmax, sort="relevance"
-            )
-        except Exception as e:
-            logging.error(f"Error fetching pmids for {search_term}: {e}")
-            return []
-
-        articles = []
-        for pmid in pmids:
-            try:
-                article = self.pubmed.article_by_pmid(pmid)
-                article_dict = article.to_dict()
-                keys_to_keep = [
-                    "title",
-                    "pmid",
-                    "url",
-                    "authors",
-                    "doi",
-                    "pmc",
-                    "issn",
-                    "mesh",
-                    "chemicals",
-                    "journal",
-                    "abstract",
-                    "year",
-                ]
-                article_dict = {k: article_dict.get(k, None) for k in keys_to_keep}
-                articles.append(article_dict)
-            except Exception as e:
-                logging.error(f"Error processing article with pmid {pmid}: {e}")
-        return articles
-
-    def filter_articles_by_recent(self, df, top_n, bottom_n):
-        """Filter the top and bottom recent articles based on user input."""
-        if "year" in df.columns:
-            df["year"] = pd.to_numeric(df["year"], errors="coerce")
-
-        df_sorted = df.sort_values(by="year", ascending=False)
-
-        df_sorted = df_sorted.map(
-            lambda x: str(x) if isinstance(x, (list, dict)) else x
-        )
-
-        top_recent = df_sorted.head(top_n) if top_n > 0 else pd.DataFrame()
-        bottom_recent = df_sorted.tail(bottom_n) if bottom_n > 0 else pd.DataFrame()
-
-        filtered_df = pd.concat([top_recent, bottom_recent]).drop_duplicates(
-            subset=["title", "pmid"]
-        )
-
-        return filtered_df
-
-    def process_compound_and_genes(
-        self,
-        compound,
-        genes,
-        start_year,
-        end_year,
-        additional_condition,
-        top_n,
-        bottom_n,
-        top_syn,
-    ):
-        """Process a single compound and multiple interaction targets for synonym lookup and article fetching."""
-        logging.info(f"Processing compound: {compound}")
-
-        top_synonyms = set([compound] + self.get_compound_synonyms(compound)[:top_syn])
-
-        if genes:
-            queries = [
-                f"({synonym}[Title/Abstract]) AND ({gene}[Title/Abstract]) {additional_condition}"
-                for synonym, gene in product(top_synonyms, genes)
-            ]
-        else:
-            queries = [
-                f"({synonym}[Title/Abstract]) {additional_condition}"
-                for synonym in top_synonyms
-            ]
-
-        query_count = 0
-        for query in queries:
-            self.articleList.extend(
-                self.fetch_articles(
-                    query, retmax=self.retmax, start_year=start_year, end_year=end_year
-                )
-            )
-
-            # Increment the query counter
-            query_count += 1
-
-            # Check if 3 queries have been made
-            if query_count == 3:
-                # Sleep for the desired amount of time
-                time.sleep(1)  # Adjust the sleep time (e.g., 1 second) as needed
-
-                # Reset the counter
-                query_count = 0
-
-        if self.articleList:
-            df = pd.DataFrame(self.articleList)
-            df_filtered = self.filter_articles_by_recent(df, top_n, bottom_n)
-            return df_filtered
-        return pd.DataFrame()
-
-
 def is_cas_number(compound):
     """Check if the provided string matches the CAS number format."""
     return bool(re.match(r"^\d{2,7}-\d{2}-\d$", compound))
@@ -369,8 +212,15 @@ def cas_to_iupac_pubchem(cas_number, retries=3, backoff_factor=2):
 
 def cas_to_iupac(cas_number):
     """
-    Converts a CAS number to an IUPAC name using the CACTUS Chemical Identifier Resolver service.
+    Converts a CAS number to an IUPAC name using the CACTUS server.
+
+    Parameters:
+    cas_number (str): The CAS number to be converted.
+
+    Returns:
+    str: The corresponding IUPAC name or an error message if the conversion fails.
     """
+
     try:
         url = f"https://cactus.nci.nih.gov/chemical/structure/{cas_number}/iupac_name"
         response = requests.get(url)
@@ -423,8 +273,18 @@ def resolve_compound_name(compound):
 
 def display_summary():
     """
-    Display a summary of the user-defined configurations.
+    Displays a summary of the user's selections including email, API key, compounds, interaction targets,
+    additional keywords, number of recent articles, and year range.
+
+    Utilizes Streamlit to present the information in a markdown format.
+
+    Parameters:
+    None
+
+    Returns:
+    None
     """
+
     st.markdown("### Summary of Your Selections")
 
     st.markdown(f"**Email Address:** `{email if email else 'Not Provided'}`")
