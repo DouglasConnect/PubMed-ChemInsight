@@ -4,7 +4,7 @@
 **PubMed ChemInsight** is an advanced **Streamlit-based** application designed for researchers to efficiently **retrieve, analyze, and explore scientific literature** related to their **compounds of interest**. It allows querying **PubMed** while incorporating **interaction targets, compound synonyms, and additional keywords** to refine search results.
 
 ## **✨ Features**
-- **🔍 Multi-Query Search**: Enter multiple compounds, genes, and additional keywords to refine search results.
+- **🔍 Multi-Query Search**: Enter multiple compounds, genes (targets), and additional keywords to refine search results, including interaction types and specific relationships.
 - **🧪 Compound Synonyms Expansion**: Fetches compound synonyms from **PubChem** to ensure broader searches.
 - **📆 Advanced Filtering**: Search for articles within a **custom year range**.
 - **📊 Data Processing & Deduplication**: Uses **Pandas** to clean and filter results, removing duplicates.
@@ -75,7 +75,7 @@ The app integrates multiple technologies to **retrieve, process, and display** s
 1. **Start the Application** (`streamlit run app.py` or launch Docker).
 2. **Input Section:**
    - **🧪 Compounds:** Enter compounds (one per line).
-   - **🧬 Genes:** *(Optional)* Enter genes (one per line).
+   - **🧬 Genes (Targets):** *(Optional)* Enter genes/targets (one per line).
    - **🔗 Additional Keywords:** *(Optional)* Provide keywords to refine the search.
 3. **Configure Settings:**
    - Adjust the **number of synonyms**, **date range**, and **number of articles** using the sidebar.
@@ -148,4 +148,3 @@ If you encounter issues, create a **GitHub issue** in the repository.
 For questions or feedback, contact the developer:
 
 [![GitHub: @asmaa-a-abdelwahab](https://img.shields.io/badge/GitHub-%40asmaa--a--abdelwahab-blue?logo=github)](https://github.com/asmaa-a-abdelwahab)
-```
