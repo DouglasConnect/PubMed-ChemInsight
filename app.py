@@ -58,28 +58,62 @@ additional_condition = (
 file_ = open("images/logo.png", "rb").read()
 base64_image = base64.b64encode(file_).decode("utf-8")
 
-# Sidebar for logo
 st.sidebar.markdown(
     f"""
-    <div style="display: flex; align-items: center; justify-content: center;">
-        <img src="data:image/png;base64,{base64_image}" alt="Logo" width="150" style="border-radius: 5px;">
+    <div style="display: flex; align-items: center; justify-content: center; padding-bottom: 10px;">
+        <!-- Logo -->
+        <div style="display: flex; align-items: center; margin-right: 10px;">
+            <img src="data:image/png;base64,{base64_image}" alt="Logo" width="120" style="border-radius: 5px;">
+        </div>
+        <!-- Separator -->
+        <div style="width: 4px; height: 30px; background-color: #ccc; margin-right: 10px;"></div>
+        <!-- Text -->
+        <div style="text-align: center;">
+            <a href="https://doi.org/10.5281/zenodo.14771565">
+                <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
+            </a>
+        </div>
+        <hr>
     </div>
     """,
     unsafe_allow_html=True,
 )
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
-# Sidebar for input fields
-st.sidebar.markdown(
-    """
-    <hr>
-    """,
-    unsafe_allow_html=True,
-)
+# # Sidebar for logo
+# st.sidebar.markdown(
+#     f"""
+#     <div style="display: flex; align-items: center; justify-content: center;">
+#         <img src="data:image/png;base64,{base64_image}" alt="Logo" width="150" style="border-radius: 5px;">
+#     </div>
+#     """,
+#     unsafe_allow_html=True,
+# )
+
+# # Sidebar for input fields
+# st.sidebar.markdown(
+#     """
+#     <div style="text-align: center;">
+#         <a href="https://doi.org/10.5281/zenodo.14771565">
+#             <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
+#         </a>
+#     </div>
+#     <hr>
+#     """,
+#     unsafe_allow_html=True,
+# )
+# st.sidebar.markdown(
+#     """
+#     [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14774229.svg)](https://doi.org/10.5281/zenodo.14774229)
+#     """,
+#     unsafe_allow_html=True,
+# )
 # st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
 # st.sidebar.title("Configuration")
 # Ask for the user's email
-email = st.sidebar.text_input("📧 Enter your email address")
+email = st.sidebar.text_input("📧 Enter your email address (Preferred)")
 api_key = st.sidebar.text_input(
     "🔑 Enter your NCBI API key (Preferred)", type="password"
 )
@@ -318,6 +352,21 @@ def display_summary():
     st.markdown("---")  # A horizontal line to separate the summary from the results
 
 
+@st.fragment
+def display_download_button(all_articles_df):
+    # Convert DataFrame to CSV in-memory
+    csv = all_articles_df.to_csv(index=False).encode("utf-8")
+
+    # Add a download button
+    if st.download_button(
+        label="📥 Download Combined Articles CSV",
+        data=csv,
+        file_name="combined_pubmed_articles.csv",
+        mime="text/csv",
+    ):
+        st.success("✔️ Combined articles saved to 'combined_pubmed_articles.csv'")
+
+
 # Main Section for Processing Compounds
 if st.button("🚀 Launch Search"):
     # Validate the email input using basic checks
@@ -380,8 +429,7 @@ if st.button("🚀 Launch Search"):
             ).drop_duplicates()
             all_articles_df.reset_index(drop=True, inplace=True)
             st.dataframe(all_articles_df)
-            st.success("✔️ Combined articles saved to 'combined_pubmed_articles.csv'")
+            st.info("✅ Done!")
+            display_download_button(all_articles_df)
         else:
             st.warning("No articles found for any of the compounds.")
-
-        st.info("✅ Done!")
