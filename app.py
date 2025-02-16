@@ -543,7 +543,7 @@ st.sidebar.markdown(
 )
 
 
-def display_summary():
+def display_summary(compounds, targets):
     """
     Displays a summary of the user's selections including email, API key, compounds, interaction targets,
     additional keywords, number of recent articles, and year range.
@@ -562,16 +562,16 @@ def display_summary():
     st.markdown(f"**Email Address:** `{email if email else 'Not Provided'}`")
     st.markdown(f"**NCBI API Key:** `{api_key if api_key else 'Not Provided'}`")
 
-    compounds_dict = json5.loads(compounds_input)
-    compounds = list(compounds_dict.keys())
+    # compounds_dict = json5.loads(compounds_input)
+    # compounds = list(compounds_dict.keys())
     compounds_str = ", ".join(compounds)
     st.markdown(
         f"**Compounds List:** `{compounds_str if compounds_str else 'Not Provided'}`"
     )
 
     if targets_input:
-        targets_dict = json5.loads(targets_input)
-        targets = list(targets_dict.keys())
+        # targets_dict = json5.loads(targets_input)
+        # targets = list(targets_dict.keys())
         targets_str = ", ".join(targets)
         st.markdown(f"**Interaction Targets List:** `{targets_str}`")
     else:
@@ -616,6 +616,14 @@ def get_key_by_value(dictionary, value):
     return None  # Return None if not found
 
 
+def is_valid_json5(text):
+    try:
+        json5.loads(text)
+        return True
+    except ValueError:  # json5 raises ValueError instead of JSONDecodeError
+        return False
+
+
 # Main Section for Processing Compounds
 if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
     # Validate the email input using basic checks
@@ -633,27 +641,31 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
     if not compounds_input:
         st.error("Please fill out the compound field.")
     else:
+        if is_valid_json5(compounds_input):
+            compounds_dict = json5.loads(compounds_input)
+            compounds = list(compounds_dict.keys())
+        else:
+            compounds = [
+                compound.strip()
+                for compound in compounds_input.split("\n")
+                if compound.strip()
+            ]
+            compounds_dict = {compound: [compound] for compound in compounds}
+
+        if is_valid_json5(targets_input):
+            targets_dict = json5.loads(targets_input)
+            targets = list(targets_dict.keys())
+        else:
+            targets = [
+                target.strip() for target in targets_input.split("\n") if target.strip()
+            ]
+            targets_dict = {target: [target] for target in targets}
+
         # Display the summary of user-defined configurations
-        display_summary()
-
-        compounds_dict = json5.loads(compounds_input)
-        compounds = list(compounds_dict.keys())
-
-        targets_dict = json5.loads(targets_input)
-        targets = list(targets_dict.keys())
+        display_summary(compounds, targets)
 
         st.info("⏳ Starting article retrieval process...")
         combined_articles = []
-
-        # # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
-        # cpd_num_to_keep = max(1, math.ceil(len(compounds_display) * top_syn / 100))
-        # filtered_compounds = compounds_display[:cpd_num_to_keep]
-
-        # # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
-        # targets_num_to_keep = max(1, math.ceil(len(targets) * top_syn / 100))
-        # targets = targets[:targets_num_to_keep]
-
-        # print(cpd_num_to_keep, targets_num_to_keep)
 
         for compounds in list(compounds_dict.values()):
             for targets in list(targets_dict.values()):
