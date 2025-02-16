@@ -1,6 +1,7 @@
 import re
 import math
 import json
+import json5
 import base64
 import datetime
 import time
@@ -158,9 +159,6 @@ def resolve_compound_name(compound):
         return compound
 
 
-import streamlit as st
-import json
-
 # Ensure session state variables exist
 if "compounds_text" not in st.session_state:
     st.session_state["compounds_text"] = ""
@@ -172,11 +170,61 @@ if "compounds_synonyms_dict" not in st.session_state:
 # Convert compounds synonyms dictionary to JSON format
 def format_compounds_json(compounds_dict):
     """Convert compound synonyms dictionary into JSON format for display."""
-    return json.dumps(compounds_dict, indent=4, ensure_ascii=False)
+    if compounds_dict:
+        return json.dumps(compounds_dict, indent=4, ensure_ascii=False)
+    else:
+        pass
 
+
+file_ = open("images/logo.png", "rb").read()
+base64_image = base64.b64encode(file_).decode("utf-8")
+
+st.sidebar.markdown(
+    f"""
+    <div style="display: flex; align-items: center; justify-content: center; padding-bottom: 10px;">
+        <!-- Logo -->
+        <div style="display: flex; align-items: center; margin-right: 10px;">
+            <img src="data:image/png;base64,{base64_image}" alt="Logo" width="120" style="border-radius: 5px;">
+        </div>
+        <!-- Separator -->
+        <div style="width: 4px; height: 30px; background-color: #ccc; margin-right: 10px;"></div>
+        <!-- Text -->
+        <div style="text-align: center;">
+            <a href="https://doi.org/10.5281/zenodo.14771565">
+                <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
+            </a>
+        </div>
+        <hr>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+# Ask for the user's email
+email = st.sidebar.text_input("📧 Enter your email address (Preferred)")
+api_key = st.sidebar.text_input(
+    "🔑 Enter your NCBI API key (Preferred)", type="password"
+)
+st.sidebar.markdown(
+    """
+    <div style="text-align: center;">
+        <p style="font-size:12px; color:black;">
+            <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Create NCBI API key for a better performance</a>
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+top_syn = st.sidebar.slider(
+    "Select the percentage of synonyms to be included in the search", 0, 100, 10
+)
 
 # Define layout
 col1, col2 = st.columns([3, 1])  # Adjust width ratio as needed
+helper = CompoundResearchHelper()
 
 with col1:
     compounds_input = st.text_area(
@@ -184,8 +232,8 @@ with col1:
         value=format_compounds_json(
             st.session_state["compounds_synonyms_dict"]
         ),  # Load JSON as text
-        height=200,
-        placeholder='{\n    "Aspirin": ["Acetylsalicylic Acid"],\n    "Ibuprofen": ["Advil", "Motrin"],\n    "Caffeine": ["1,3,7-Trimethylxanthine"]\n}',
+        height=150,
+        placeholder="Ibuprofen\nMetformin\nAtorvastatin\nOmeprazole",
     )
 
 with col2:
@@ -199,7 +247,6 @@ with col2:
                 font-size: 18px !important;
                 font-weight: bold !important;
                 border-radius: 8px !important;
-                border: none !important;
                 cursor: pointer !important;
                 transition: all 0.3s !important;
                 width: 100% !important;  /* Match text area width */
@@ -208,14 +255,17 @@ with col2:
                 align-items: center !important;
                 justify-content: center !important;
                 text-align: center !important;
+                box-shadow: 2px 4px 6px rgba(0, 0, 0, 0.2) !important;
             }
 
             .synonyms-button-container button:hover {
                 background-color: #c0c0c0 !important; /* Slightly darker Gray */
+                box-shadow: 4px 6px 10px rgba(0, 0, 0, 0.3) !important;
             }
 
             .synonyms-button-container button:active {
                 background-color: #a9a9a9 !important; /* Darker Gray */
+                box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.4) inset !important;
             }
         </style>
         """,
@@ -249,13 +299,21 @@ with col2:
                 synonyms = helper.get_compound_synonyms(compound_name)
                 filtered_synonyms = [syn for syn in synonyms if syn.strip()]
 
+                # Calculate the top_syn percentage (rounded up to ensure at least 1 item if the list is small)
+                cpd_num_to_keep = max(
+                    1, math.ceil(len(filtered_synonyms) * top_syn / 100)
+                )
+                filtered_synonyms = filtered_synonyms[:cpd_num_to_keep]
+
                 if not filtered_synonyms:
-                    st.warning(f"⚠️ No synonyms found for '{compound_name}'.")
+                    st.warning(
+                        f"⚠️ No synonyms found for '{compound_name}'. Increase the top synonyms percentage and try again."
+                    )
 
                 # ✅ Store the synonyms with the original compound name
-                compounds_synonyms_dict[compound_name] = filtered_synonyms + [
+                compounds_synonyms_dict[compound_name] = [
                     compound_name
-                ]
+                ] + filtered_synonyms
 
             # ✅ Store cleaned synonyms dictionary in session state
             st.session_state["compounds_synonyms_dict"] = compounds_synonyms_dict
@@ -268,9 +326,9 @@ with col2:
 
     st.markdown("</div>", unsafe_allow_html=True)  # Close the button container
 
-# ✅ Display Updated Synonyms in JSON Format
-if "compounds_synonyms_dict" in st.session_state:
-    st.json(st.session_state["compounds_synonyms_dict"])
+# # ✅ Display Updated Synonyms in JSON Format
+# if "compounds_synonyms_dict" in st.session_state:
+#     st.json(st.session_state["compounds_synonyms_dict"])
 
 
 # Target input with a button beside it
@@ -395,10 +453,16 @@ with col2:
                 # ✅ Retrieve synonyms inside the loop for each valid target
                 synonyms = retriever.get_target_synonyms(target_name, target_type)
                 # ✅ Remove empty strings from synonyms list
-                filtered_synonyms = [syn for syn in synonyms if syn.strip()]
-                synonyms_dict[target_name] = filtered_synonyms + [
+                filtered_target_synonyms = [syn for syn in synonyms if syn.strip()]
+                # Calculate the top_syn percentage (rounded up to ensure at least 1 item if the list is small)
+                target_num_to_keep = max(
+                    1, math.ceil(len(filtered_target_synonyms) * top_syn / 100)
+                )
+                filtered_target_synonyms = filtered_target_synonyms[:target_num_to_keep]
+
+                synonyms_dict[target_name] = [
                     target_name
-                ]  # Add original name
+                ] + filtered_target_synonyms  # Add original name
 
             # ✅ If no errors were found, clear the error message
             if not error_found:
@@ -430,51 +494,8 @@ additional_condition = (
     else ""
 )
 
-file_ = open("images/logo.png", "rb").read()
-base64_image = base64.b64encode(file_).decode("utf-8")
 
-st.sidebar.markdown(
-    f"""
-    <div style="display: flex; align-items: center; justify-content: center; padding-bottom: 10px;">
-        <!-- Logo -->
-        <div style="display: flex; align-items: center; margin-right: 10px;">
-            <img src="data:image/png;base64,{base64_image}" alt="Logo" width="120" style="border-radius: 5px;">
-        </div>
-        <!-- Separator -->
-        <div style="width: 4px; height: 30px; background-color: #ccc; margin-right: 10px;"></div>
-        <!-- Text -->
-        <div style="text-align: center;">
-            <a href="https://doi.org/10.5281/zenodo.14771565">
-                <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
-            </a>
-        </div>
-        <hr>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-
-# Ask for the user's email
-email = st.sidebar.text_input("📧 Enter your email address (Preferred)")
-api_key = st.sidebar.text_input(
-    "🔑 Enter your NCBI API key (Preferred)", type="password"
-)
-st.sidebar.markdown(
-    """
-    <div style="text-align: center;">
-        <p style="font-size:12px; color:black;">
-            <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Create NCBI API key for a better performance</a>
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 # st.sidebar.write("\n\n\n\n\n\n\n\n\n")
-top_syn = st.sidebar.slider(
-    "Select the percentage of synonyms to be included in the search", 0, 100, 10
-)
 top_recent_n = st.sidebar.slider("Select the number of top recent articles", 0, 100, 10)
 bottom_recent_n = st.sidebar.slider(
     "Select the number of bottom recent articles", 0, 100, 10
@@ -541,12 +562,16 @@ def display_summary():
     st.markdown(f"**Email Address:** `{email if email else 'Not Provided'}`")
     st.markdown(f"**NCBI API Key:** `{api_key if api_key else 'Not Provided'}`")
 
-    compounds_str = ", ".join(compounds_display)
+    compounds_dict = json5.loads(compounds_input)
+    compounds = list(compounds_dict.keys())
+    compounds_str = ", ".join(compounds)
     st.markdown(
         f"**Compounds List:** `{compounds_str if compounds_str else 'Not Provided'}`"
     )
 
-    if targets:
+    if targets_input:
+        targets_dict = json5.loads(targets_input)
+        targets = list(targets_dict.keys())
         targets_str = ", ".join(targets)
         st.markdown(f"**Interaction Targets List:** `{targets_str}`")
     else:
@@ -584,6 +609,13 @@ def display_download_button(all_articles_df):
         st.success("✔️ Combined articles saved to 'combined_pubmed_articles.csv'")
 
 
+def get_key_by_value(dictionary, value):
+    for key, val in dictionary.items():
+        if val == value:
+            return key  # Return the first matching key
+    return None  # Return None if not found
+
+
 # Main Section for Processing Compounds
 if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
     # Validate the email input using basic checks
@@ -598,51 +630,66 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
     if api_key:
         Entrez.api_key = api_key
 
-    if not compounds_display:
+    if not compounds_input:
         st.error("Please fill out the compound field.")
     else:
         # Display the summary of user-defined configurations
         display_summary()
 
+        compounds_dict = json5.loads(compounds_input)
+        compounds = list(compounds_dict.keys())
+
+        targets_dict = json5.loads(targets_input)
+        targets = list(targets_dict.keys())
+
         st.info("⏳ Starting article retrieval process...")
         combined_articles = []
 
-        # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
-        cpd_num_to_keep = max(1, math.ceil(len(compounds_display) * top_syn / 100))
-        filtered_compounds = compounds_display[:cpd_num_to_keep]
+        # # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
+        # cpd_num_to_keep = max(1, math.ceil(len(compounds_display) * top_syn / 100))
+        # filtered_compounds = compounds_display[:cpd_num_to_keep]
 
-        # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
-        targets_num_to_keep = max(1, math.ceil(len(targets) * top_syn / 100))
-        targets = targets[:targets_num_to_keep]
+        # # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
+        # targets_num_to_keep = max(1, math.ceil(len(targets) * top_syn / 100))
+        # targets = targets[:targets_num_to_keep]
 
-        print(cpd_num_to_keep, targets_num_to_keep)
+        # print(cpd_num_to_keep, targets_num_to_keep)
 
-        for compound in filtered_compounds:
-            st.info(f"Searching PubMed for compound: {compound}")
+        for compounds in list(compounds_dict.values()):
+            for targets in list(targets_dict.values()):
+                st.info(
+                    f"Searching PubMed for compound: {get_key_by_value(compounds_dict, compounds)}"
+                )
 
-            helper.articleList = []
-            # Process articles for each search term (compound and synonyms)
-            articles_df = helper.process_compound_and_targets(
-                compound,
-                targets,
-                start_year,
-                end_year,
-                additional_condition,
-                top_recent_n,
-                bottom_recent_n,
-            )
+                helper.articleList = []
+                # Process articles for each search term (compound and synonyms)
+                articles_df = helper.process_compound_and_targets(
+                    compounds,
+                    targets,
+                    start_year,
+                    end_year,
+                    additional_condition,
+                    top_recent_n,
+                    bottom_recent_n,
+                )
 
-            if not articles_df.empty:
-                st.success(f"✔️ Articles found for: {compound}")
-                articles_df["compound"] = compound
-                articles_df.reset_index(
-                    drop=True, inplace=True
-                )  # Tag articles with compound name
-                st.dataframe(articles_df)
-                combined_articles.append(articles_df)
-            else:
-                st.warning(f"No articles found for compound: {compound}")
-            time.sleep(1)
+                if not articles_df.empty:
+                    st.success(
+                        f"✔️ Articles found for: {get_key_by_value(compounds_dict, compounds)}"
+                    )
+                    articles_df["compound"] = get_key_by_value(
+                        compounds_dict, compounds
+                    )
+                    articles_df.reset_index(
+                        drop=True, inplace=True
+                    )  # Tag articles with compound name
+                    st.dataframe(articles_df)
+                    combined_articles.append(articles_df)
+                else:
+                    st.warning(
+                        f"No articles found for compound: {get_key_by_value(compounds_dict, compounds)}"
+                    )
+                time.sleep(1)
 
         # Combine articles for all compounds if available
         if len(combined_articles) > 1:

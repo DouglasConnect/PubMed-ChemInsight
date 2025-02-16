@@ -26,48 +26,79 @@ class CompoundResearchHelper:
         self.retmax = retmax
         self.articleList = []
 
+        self.pubchem_base_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+        self.chembl_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+
+    def _fetch_data(self, url):
+        """Helper function to handle API requests."""
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as err:
+            logging.error(f"Error fetching data from {url}: {err}")
+            return {}
+
+    def get_pubchem_synonyms(self, chemical_name):
+        """Retrieve synonyms for chemicals from PubChem."""
+        try:
+            # Step 1: Get CID
+            cid_url = f"{self.pubchem_base_url}/compound/name/{chemical_name}/cids/JSON"
+            cid_data = self._fetch_data(cid_url)
+            cid = cid_data.get("IdentifierList", {}).get("CID", [None])[0]
+            if not cid:
+                logging.warning(f"No CID found for {chemical_name} in PubChem.")
+                return []
+
+            # Step 2: Retrieve synonyms using CID
+            synonyms_url = f"{self.pubchem_base_url}/compound/cid/{cid}/synonyms/JSON"
+            synonyms_data = self._fetch_data(synonyms_url)
+
+            return (
+                synonyms_data.get("InformationList", {})
+                .get("Information", [{}])[0]
+                .get("Synonym", [])
+            )
+        except Exception as e:
+            logging.error(f"Error retrieving PubChem synonyms for {chemical_name}: {e}")
+            return []
+
+    def get_chembl_synonyms(self, compound_name):
+        """Retrieve synonyms for small molecules from ChEMBL."""
+        url = (
+            f"{self.chembl_base_url}/molecule.json?pref_name__icontains={compound_name}"
+        )
+        data = self._fetch_data(url)
+        if not data or "molecules" not in data:
+            logging.warning(f"No ChEMBL data found for {compound_name}.")
+            return []
+
+        synonyms = [
+            compound["pref_name"]
+            for compound in data["molecules"]
+            if "pref_name" in compound
+        ]
+        return list(set(synonyms))  # Ensure unique synonyms
+
     def get_compound_synonyms(self, compound_name):
         """
-        Retrieves synonyms for the given compound name from PubChem.
+        Retrieves synonyms for the given compound name from PubChem and ChEMBL.
 
         Parameters:
         compound_name (str): The name of the compound to retrieve synonyms for.
 
         Returns:
-        list: A list of synonyms for the given compound name. If no synonyms can be found, or if an error occurs, an empty list is returned.
-
-        Raises:
-        requests.exceptions.HTTPError: Raised if an HTTP error occurs during the request.
-        Exception: Raised if any other error occurs during the request.
+        list: A combined list of unique synonyms from PubChem and ChEMBL.
         """
-        try:
-            cid_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{compound_name}/cids/JSON"
-            cid_response = requests.get(cid_url)
-            cid_response.raise_for_status()
+        pubchem_synonyms = self.get_pubchem_synonyms(compound_name)
+        # chembl_synonyms = self.get_chembl_synonyms(compound_name)
 
-            cid_data = cid_response.json()
-            cid = cid_data.get("IdentifierList", {}).get("CID", [None])[0]
-            if not cid:
-                logging.warning(f"No CID found for {compound_name}")
-                return []
-
-            synonyms_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/synonyms/JSON"
-            synonyms_response = requests.get(synonyms_url)
-            synonyms_response.raise_for_status()
-
-            synonyms_data = synonyms_response.json()
-            all_synonyms = (
-                synonyms_data.get("InformationList", {})
-                .get("Information", [{}])[0]
-                .get("Synonym", [])
-            )
-            return all_synonyms or []
-
-        except requests.HTTPError as http_err:
-            logging.error(f"HTTP error occurred: {http_err}")
-        except Exception as err:
-            logging.error(f"An error occurred: {err}")
-        return []
+        # Combine and remove duplicates
+        all_synonyms = list(set([compound_name] + pubchem_synonyms))
+        if all_synonyms:
+            return all_synonyms
+        else:
+            [compound_name]
 
     def fetch_articles(self, search_term, retmax=1000, start_year=2000, end_year=None):
         """
@@ -156,14 +187,13 @@ class CompoundResearchHelper:
 
     def process_compound_and_targets(
         self,
-        compound,
+        compounds,
         genes,
         start_year,
         end_year,
         additional_condition,
         top_n,
         bottom_n,
-        top_syn,
     ):
         """
         Process a compound and optional list of genes by performing a PubMed search
@@ -183,20 +213,41 @@ class CompoundResearchHelper:
         Returns:
         pd.DataFrame: A DataFrame containing the top and bottom recent articles, deduplicated by 'title' and 'pmid'.
         """
-        logging.info(f"Processing compound: {compound}")
+        logging.info(f"Processing compound: {compounds[0]}")
 
-        top_synonyms = set([compound] + self.get_compound_synonyms(compound)[:top_syn])
+        batch_size = 5  # Adjust batch size to avoid long queries
+        queries = []
 
         if genes:
-            queries = [
-                f"({synonym}[Title/Abstract]) AND ({gene}[Title/Abstract]) {additional_condition}"
-                for synonym, gene in product(top_synonyms, genes)
-            ]
+            for compound_chunk in [
+                compounds[i : i + batch_size]
+                for i in range(0, len(compounds), batch_size)
+            ]:
+                for gene_chunk in [
+                    genes[i : i + batch_size] for i in range(0, len(genes), batch_size)
+                ]:
+                    query = (
+                        f"(({' OR '.join([f'{compound}[Title/Abstract]' for compound in compound_chunk])}) AND "
+                        f"({' OR '.join([f'{gene}[Title/Abstract]' for gene in gene_chunk])})) {additional_condition}"
+                    )
+                    queries.append(query)
         else:
-            queries = [
-                f"({synonym}[Title/Abstract]) {additional_condition}"
-                for synonym in top_synonyms
-            ]
+            for compound_chunk in [
+                compounds[i : i + batch_size]
+                for i in range(0, len(compounds), batch_size)
+            ]:
+                query = f"({' OR '.join([f'{compound}[Title/Abstract]' for compound in compound_chunk])}) {additional_condition}"
+                queries.append(query)
+
+        # if genes:
+        #     queries = [
+        #         f"({synonym}[Title/Abstract]) AND ({gene}[Title/Abstract]) {additional_condition}"
+        #         for synonym, gene in product(compound, genes)
+        #     ]
+        # else:
+        #     queries = [
+        #         f"({compound}[Title/Abstract]) {additional_condition}"
+        #     ]
 
         query_count = 0
         for query in queries:
