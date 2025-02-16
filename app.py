@@ -657,7 +657,7 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
             targets = list(targets_dict.keys())
         else:
             targets = [
-                target.strip() for target in targets_input.split("\n") if target.strip()
+                target.split(",")[0].strip() for target in targets_input.split("\n")
             ]
             targets_dict = {target: [target] for target in targets}
 
