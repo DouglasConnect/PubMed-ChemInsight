@@ -692,6 +692,7 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
                     articles_df["compound"] = get_key_by_value(
                         compounds_dict, compounds
                     )
+                    articles_df["target"] = get_key_by_value(targets_dict, targets)
                     articles_df.reset_index(
                         drop=True, inplace=True
                     )  # Tag articles with compound name
