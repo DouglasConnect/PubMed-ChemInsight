@@ -1,6 +1,6 @@
 # Ignore virtual environments
 AutoPubMedRetriever/
-.env/
+.venv/
 
 # Byte-compiled files
 *.pyc

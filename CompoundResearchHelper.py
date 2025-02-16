@@ -154,7 +154,7 @@ class CompoundResearchHelper:
 
         return filtered_df
 
-    def process_compound_and_genes(
+    def process_compound_and_targets(
         self,
         compound,
         genes,

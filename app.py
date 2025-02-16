@@ -1,4 +1,6 @@
 import re
+import math
+import json
 import base64
 import datetime
 import time
@@ -7,15 +9,16 @@ import requests
 import streamlit as st
 from Bio import Entrez
 from CompoundResearchHelper import CompoundResearchHelper
+from BioInfoRetriever import SynonymRetriever
 
 pd.set_option("display.max_colwidth", 1)
 
-st.set_page_config(page_title="PubMed ChemInsight", page_icon="🔬")
+st.set_page_config(page_title="PubMed ChemInsight", page_icon="⚗️")
 # Streamlit App Setup 📚
 st.markdown(
     """
     <div style="text-align: center;">
-        <h1>⚛️ -- PubMed ChemInsight -- ⚛️\nUnlock Insights from PubMed</h1>
+        <h1>PubMed ⚗️ ChemInsight \n\n 📑-Unlock Insights from PubMed-📑</h1>
     </div>
     """,
     unsafe_allow_html=True,
@@ -24,156 +27,6 @@ st.markdown(
 st.markdown("""
     This tool allows you to search PubMed for Scientific Articles Specific to your Compounds of Interest.
 """)
-
-# Streamlit Input for User (Main Section)
-compounds_input = st.text_area(
-    "🧪 Enter Compounds (One Chemical Name or CAS Number per Line)"
-)
-compounds_list = [
-    compound.strip() for compound in compounds_input.split("\n") if compound.strip()
-]
-
-genes_input = st.text_area(
-    "🧬 Enter Interaction Targets (One Target per Line) (Optional)"
-)
-genes = [gene.strip() for gene in genes_input.split("\n") if gene.strip()]
-
-# New input for additional keywords from user
-additional_keywords_input = st.text_area(
-    "🔗 Enter Other Keywords (One Keyword per Line) (Optional)"
-)
-additional_keywords_list = [
-    keyword.strip()
-    for keyword in additional_keywords_input.split("\n")
-    if keyword.strip()
-]
-
-# Modify the additional condition only if additional keywords are provided
-additional_condition = (
-    f"AND ({' OR '.join([f'{kw}[Title/Abstract]' for kw in additional_keywords_list])})"
-    if additional_keywords_list
-    else ""
-)
-
-file_ = open("images/logo.png", "rb").read()
-base64_image = base64.b64encode(file_).decode("utf-8")
-
-st.sidebar.markdown(
-    f"""
-    <div style="display: flex; align-items: center; justify-content: center; padding-bottom: 10px;">
-        <!-- Logo -->
-        <div style="display: flex; align-items: center; margin-right: 10px;">
-            <img src="data:image/png;base64,{base64_image}" alt="Logo" width="120" style="border-radius: 5px;">
-        </div>
-        <!-- Separator -->
-        <div style="width: 4px; height: 30px; background-color: #ccc; margin-right: 10px;"></div>
-        <!-- Text -->
-        <div style="text-align: center;">
-            <a href="https://doi.org/10.5281/zenodo.14771565">
-                <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
-            </a>
-        </div>
-        <hr>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-
-# # Sidebar for logo
-# st.sidebar.markdown(
-#     f"""
-#     <div style="display: flex; align-items: center; justify-content: center;">
-#         <img src="data:image/png;base64,{base64_image}" alt="Logo" width="150" style="border-radius: 5px;">
-#     </div>
-#     """,
-#     unsafe_allow_html=True,
-# )
-
-# # Sidebar for input fields
-# st.sidebar.markdown(
-#     """
-#     <div style="text-align: center;">
-#         <a href="https://doi.org/10.5281/zenodo.14771565">
-#             <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
-#         </a>
-#     </div>
-#     <hr>
-#     """,
-#     unsafe_allow_html=True,
-# )
-# st.sidebar.markdown(
-#     """
-#     [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14774229.svg)](https://doi.org/10.5281/zenodo.14774229)
-#     """,
-#     unsafe_allow_html=True,
-# )
-# st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-
-# st.sidebar.title("Configuration")
-# Ask for the user's email
-email = st.sidebar.text_input("📧 Enter your email address (Preferred)")
-api_key = st.sidebar.text_input(
-    "🔑 Enter your NCBI API key (Preferred)", type="password"
-)
-st.sidebar.markdown(
-    """
-    <div style="text-align: center;">
-        <p style="font-size:12px; color:black;">
-            <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Create NCBI API key for a better performance</a>
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-# st.sidebar.write("\n\n\n\n\n\n\n\n\n")
-top_syn = st.sidebar.slider("Select number of top synonyms per compound", 0, 10, 2)
-top_recent_n = st.sidebar.slider("Select the number of top recent articles", 0, 100, 10)
-bottom_recent_n = st.sidebar.slider(
-    "Select the number of bottom recent articles", 0, 100, 10
-)
-# st.sidebar.write("\n\n\n\n\n\n\n\n\n")
-start_year = st.sidebar.number_input(
-    "Start Year",
-    value=2000,
-    step=1,
-    min_value=1900,
-    max_value=datetime.datetime.now().year,
-)
-end_year = st.sidebar.number_input(
-    "End Year",
-    value=datetime.datetime.now().year,
-    step=1,
-    min_value=1900,
-    max_value=datetime.datetime.now().year,
-)
-
-# Sidebar for Configuration
-st.sidebar.markdown(
-    """
-    <hr>
-    <div style="text-align: center;">
-        <p style="font-size: 12px; color: gray;">
-            © 2024 Edelweiss Connect - Developed by Asmaa A. Abdelwahab
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.sidebar.markdown(
-    """
-    <div style="display: flex; align-items: center; justify-content: center;">
-        <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
-            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo" style="width:30px; height:30px; margin-right: 10px;">
-        </a>
-        <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
-            <p style="font-size: 14px; font-weight: bold; color: black; margin: 0;">@asmaa-a-abdelwahab</p>
-        </a>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
 
 def is_cas_number(compound):
@@ -305,6 +158,370 @@ def resolve_compound_name(compound):
         return compound
 
 
+import streamlit as st
+import json
+
+# Ensure session state variables exist
+if "compounds_text" not in st.session_state:
+    st.session_state["compounds_text"] = ""
+
+if "compounds_synonyms_dict" not in st.session_state:
+    st.session_state["compounds_synonyms_dict"] = {}
+
+
+# Convert compounds synonyms dictionary to JSON format
+def format_compounds_json(compounds_dict):
+    """Convert compound synonyms dictionary into JSON format for display."""
+    return json.dumps(compounds_dict, indent=4, ensure_ascii=False)
+
+
+# Define layout
+col1, col2 = st.columns([3, 1])  # Adjust width ratio as needed
+
+with col1:
+    compounds_input = st.text_area(
+        "🧪 Enter Compounds (One Chemical Name or CAS Number per Line)",
+        value=format_compounds_json(
+            st.session_state["compounds_synonyms_dict"]
+        ),  # Load JSON as text
+        height=200,
+        placeholder='{\n    "Aspirin": ["Acetylsalicylic Acid"],\n    "Ibuprofen": ["Advil", "Motrin"],\n    "Caffeine": ["1,3,7-Trimethylxanthine"]\n}',
+    )
+
+with col2:
+    # Custom CSS for button styling
+    st.markdown(
+        """
+        <style>
+            .synonyms-button-container button {
+                background-color: #f0f2f6 !important; /* Light Gray */
+                color: black !important;
+                font-size: 18px !important;
+                font-weight: bold !important;
+                border-radius: 8px !important;
+                border: none !important;
+                cursor: pointer !important;
+                transition: all 0.3s !important;
+                width: 100% !important;  /* Match text area width */
+                height: 80px !important;  /* Adjust height */
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+            }
+
+            .synonyms-button-container button:hover {
+                background-color: #c0c0c0 !important; /* Slightly darker Gray */
+            }
+
+            .synonyms-button-container button:active {
+                background-color: #a9a9a9 !important; /* Darker Gray */
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Add a div wrapper to ensure this style applies only to this button
+    st.markdown('<div class="synonyms-button-container">', unsafe_allow_html=True)
+
+    # Retrieve Synonyms Button for Compounds
+    if st.button(
+        "🔍  Retrieve Synonyms for Compounds",
+        key="retrieve_compound_synonyms",
+        help="Click to Fetch synonyms for compounds",
+    ):
+        if not compounds_input.strip():
+            st.warning("⚠️ Please enter at least one compound!")
+        else:
+            compounds_list = [
+                compound.strip()
+                for compound in compounds_input.strip().split("\n")
+                if compound.strip()
+            ]
+            compounds_synonyms_dict = {}
+            error_found = False  # Track if an error is found
+
+            for compound in compounds_list:
+                compound_name = resolve_compound_name(compound)
+
+                # ✅ Retrieve synonyms and remove empty strings
+                synonyms = helper.get_compound_synonyms(compound_name)
+                filtered_synonyms = [syn for syn in synonyms if syn.strip()]
+
+                if not filtered_synonyms:
+                    st.warning(f"⚠️ No synonyms found for '{compound_name}'.")
+
+                # ✅ Store the synonyms with the original compound name
+                compounds_synonyms_dict[compound_name] = filtered_synonyms + [
+                    compound_name
+                ]
+
+            # ✅ Store cleaned synonyms dictionary in session state
+            st.session_state["compounds_synonyms_dict"] = compounds_synonyms_dict
+
+            # ✅ Immediately update the text area in JSON format
+            st.session_state["compounds_text"] = format_compounds_json(
+                compounds_synonyms_dict
+            )
+            st.rerun()  # Force UI refresh
+
+    st.markdown("</div>", unsafe_allow_html=True)  # Close the button container
+
+# ✅ Display Updated Synonyms in JSON Format
+if "compounds_synonyms_dict" in st.session_state:
+    st.json(st.session_state["compounds_synonyms_dict"])
+
+
+# Target input with a button beside it
+retriever = SynonymRetriever()
+
+# Ensure session state exists
+if "targets_text" not in st.session_state:
+    st.session_state["targets_text"] = ""
+
+if "synonyms_dict" not in st.session_state:
+    st.session_state["synonyms_dict"] = {}
+
+
+# Convert synonyms_dict to JSON format for text area
+def format_synonyms_json(synonyms_dict):
+    """Convert dictionary into a pretty JSON format for text area."""
+    if synonyms_dict:
+        return json.dumps(synonyms_dict, indent=4, ensure_ascii=False)
+    else:
+        pass
+
+
+# Define columns
+col1, col2 = st.columns([3, 1])  # Adjust width ratio as needed
+
+with col1:
+    targets_input = st.text_area(
+        "📌 Enter Interaction Targets (One Target per Line in the format of 'target, type')",
+        value=format_synonyms_json(
+            st.session_state["synonyms_dict"]
+        ),  # Load formatted dictionary as text
+        height=150,
+        placeholder="BRAF, protein\nTP53, gene\naspirin, chemical\nGABA receptor, receptor\nApoptosis, pathway",
+    )
+
+with col2:
+    # Custom CSS for ONLY this button
+    st.markdown(
+        """
+        <style>
+            .element-container:nth-of-type(3) button {
+                background-color: #f0f2f6 !important; /* Light Gray */
+                color: black !important;
+                font-size: 50px !important;
+                font-weight: bold !important;
+                border-radius: 8px !important;
+                border: none !important;
+                cursor: pointer !important;
+                transition: all 0.3s !important;
+                width: 100% !important;  /* Adjust width */
+                height: 140px !important;  /* Adjust height */
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+            }
+
+            /* Change color on hover */
+            .element-container:nth-of-type(3) button:hover {
+                background-color: #c0c0c0 !important; /* Slightly darker Gray */
+            }
+
+            /* Change color on click */
+            .element-container:nth-of-type(3) button:active {
+                background-color: #a9a9a9 !important; /* Darker Gray */
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Add a div wrapper to ensure this style applies only to this button
+    st.markdown('<div class="synonyms-button-container">', unsafe_allow_html=True)
+
+    # Ensure session state exists
+    if "error_message" not in st.session_state:
+        st.session_state["error_message"] = None
+    if "synonyms_dict" not in st.session_state:
+        st.session_state["synonyms_dict"] = {}
+
+    # Retrieve Synonyms Button
+    if st.button(
+        label="🔍  Retrieve Synonyms for\n\n\n Targets",
+        key="retrieve_synonyms",
+        help="Click to Fetch synonyms for entered targets",
+    ):
+        if not targets_input.strip():
+            st.session_state["error_message"] = "⚠️ Please enter at least one target!"
+        else:
+            target_list = [
+                line.strip().split(",") for line in targets_input.strip().split("\n")
+            ]
+            synonyms_dict = {}
+            error_found = False  # Track if an error is found
+
+            for entry in target_list:
+                if len(entry) != 2:  # Ensure exactly two elements exist
+                    st.session_state["error_message"] = (
+                        f"❌ Invalid format for input: {' '.join(entry)}. "
+                        "Use format 'TARGET_NAME, TARGET_TYPE'."
+                    )
+                    error_found = True
+                    continue
+
+                target_name = entry[0].strip()
+                target_type = entry[1].strip().lower()
+
+                if target_type not in [
+                    "protein",
+                    "gene",
+                    "chemical",
+                    "receptor",
+                    "pathway",
+                ]:
+                    st.session_state["error_message"] = (
+                        f"❌ Unknown target type: {target_type}. Choose from "
+                        "protein, gene, chemical, receptor, or pathway."
+                    )
+                    error_found = True
+                    continue
+
+                # ✅ Retrieve synonyms inside the loop for each valid target
+                synonyms = retriever.get_target_synonyms(target_name, target_type)
+                # ✅ Remove empty strings from synonyms list
+                filtered_synonyms = [syn for syn in synonyms if syn.strip()]
+                synonyms_dict[target_name] = filtered_synonyms + [
+                    target_name
+                ]  # Add original name
+
+            # ✅ If no errors were found, clear the error message
+            if not error_found:
+                st.session_state["error_message"] = None
+
+            # ✅ Store synonyms dictionary in session state
+            st.session_state["synonyms_dict"] = synonyms_dict
+            st.rerun()  # Force Streamlit to refresh and apply updates immediately
+
+    # Display error messages outside the button click block
+    if st.session_state["error_message"]:
+        st.warning(st.session_state["error_message"])
+
+
+# New input for additional keywords from user
+additional_keywords_input = st.text_area(
+    "🔗 Enter Other Keywords (One Keyword per Line) (Optional)"
+)
+additional_keywords_list = [
+    keyword.strip()
+    for keyword in additional_keywords_input.split("\n")
+    if keyword.strip()
+]
+
+# Modify the additional condition only if additional keywords are provided
+additional_condition = (
+    f"AND ({' OR '.join([f'{kw}[Title/Abstract]' for kw in additional_keywords_list])})"
+    if additional_keywords_list
+    else ""
+)
+
+file_ = open("images/logo.png", "rb").read()
+base64_image = base64.b64encode(file_).decode("utf-8")
+
+st.sidebar.markdown(
+    f"""
+    <div style="display: flex; align-items: center; justify-content: center; padding-bottom: 10px;">
+        <!-- Logo -->
+        <div style="display: flex; align-items: center; margin-right: 10px;">
+            <img src="data:image/png;base64,{base64_image}" alt="Logo" width="120" style="border-radius: 5px;">
+        </div>
+        <!-- Separator -->
+        <div style="width: 4px; height: 30px; background-color: #ccc; margin-right: 10px;"></div>
+        <!-- Text -->
+        <div style="text-align: center;">
+            <a href="https://doi.org/10.5281/zenodo.14771565">
+                <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14771565.svg" alt="DOI">
+            </a>
+        </div>
+        <hr>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+st.sidebar.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+# Ask for the user's email
+email = st.sidebar.text_input("📧 Enter your email address (Preferred)")
+api_key = st.sidebar.text_input(
+    "🔑 Enter your NCBI API key (Preferred)", type="password"
+)
+st.sidebar.markdown(
+    """
+    <div style="text-align: center;">
+        <p style="font-size:12px; color:black;">
+            <a href="https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us" target="_blank" style="font-size:14px; color:black;">Create NCBI API key for a better performance</a>
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+# st.sidebar.write("\n\n\n\n\n\n\n\n\n")
+top_syn = st.sidebar.slider(
+    "Select the percentage of synonyms to be included in the search", 0, 100, 10
+)
+top_recent_n = st.sidebar.slider("Select the number of top recent articles", 0, 100, 10)
+bottom_recent_n = st.sidebar.slider(
+    "Select the number of bottom recent articles", 0, 100, 10
+)
+# st.sidebar.write("\n\n\n\n\n\n\n\n\n")
+start_year = st.sidebar.number_input(
+    "Start Year",
+    value=2000,
+    step=1,
+    min_value=1900,
+    max_value=datetime.datetime.now().year,
+)
+end_year = st.sidebar.number_input(
+    "End Year",
+    value=datetime.datetime.now().year,
+    step=1,
+    min_value=1900,
+    max_value=datetime.datetime.now().year,
+)
+
+# Sidebar for Configuration
+st.sidebar.markdown(
+    """
+    <hr>
+    <div style="text-align: center;">
+        <p style="font-size: 12px; color: gray;">
+            © 2024 Edelweiss Connect - Developed by Asmaa A. Abdelwahab
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.sidebar.markdown(
+    """
+    <div style="display: flex; align-items: center; justify-content: center;">
+        <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
+            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo" style="width:30px; height:30px; margin-right: 10px;">
+        </a>
+        <a href="https://github.com/asmaa-a-abdelwahab" target="_blank" style="text-decoration: none;">
+            <p style="font-size: 14px; font-weight: bold; color: black; margin: 0;">@asmaa-a-abdelwahab</p>
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 def display_summary():
     """
     Displays a summary of the user's selections including email, API key, compounds, interaction targets,
@@ -324,14 +541,14 @@ def display_summary():
     st.markdown(f"**Email Address:** `{email if email else 'Not Provided'}`")
     st.markdown(f"**NCBI API Key:** `{api_key if api_key else 'Not Provided'}`")
 
-    compounds_str = ", ".join(compounds_list)
+    compounds_str = ", ".join(compounds_display)
     st.markdown(
         f"**Compounds List:** `{compounds_str if compounds_str else 'Not Provided'}`"
     )
 
-    if genes:
-        genes_str = ", ".join(genes)
-        st.markdown(f"**Interaction Targets List:** `{genes_str}`")
+    if targets:
+        targets_str = ", ".join(targets)
+        st.markdown(f"**Interaction Targets List:** `{targets_str}`")
     else:
         st.markdown("**Interaction Targets List:** `Not Provided`")
 
@@ -368,7 +585,7 @@ def display_download_button(all_articles_df):
 
 
 # Main Section for Processing Compounds
-if st.button("🚀 Launch Search"):
+if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
     # Validate the email input using basic checks
     if email:
         if "@" not in email or "." not in email.split("@")[-1]:
@@ -381,32 +598,38 @@ if st.button("🚀 Launch Search"):
     if api_key:
         Entrez.api_key = api_key
 
-    if not compounds_list:
+    if not compounds_display:
         st.error("Please fill out the compound field.")
     else:
         # Display the summary of user-defined configurations
         display_summary()
 
         st.info("⏳ Starting article retrieval process...")
-        helper = CompoundResearchHelper()
-
         combined_articles = []
-        for compound in compounds_list:
-            st.info(f"Processing compound: {compound}")
-            resolved_compound = resolve_compound_name(compound)
-            st.info(f"Searching PubMed for compound: {resolved_compound}")
+
+        # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
+        cpd_num_to_keep = max(1, math.ceil(len(compounds_display) * top_syn / 100))
+        filtered_compounds = compounds_display[:cpd_num_to_keep]
+
+        # Calculate 10% of the length (rounded up to ensure at least 1 item if the list is small)
+        targets_num_to_keep = max(1, math.ceil(len(targets) * top_syn / 100))
+        targets = targets[:targets_num_to_keep]
+
+        print(cpd_num_to_keep, targets_num_to_keep)
+
+        for compound in filtered_compounds:
+            st.info(f"Searching PubMed for compound: {compound}")
 
             helper.articleList = []
             # Process articles for each search term (compound and synonyms)
-            articles_df = helper.process_compound_and_genes(
-                resolved_compound,
-                genes,
+            articles_df = helper.process_compound_and_targets(
+                compound,
+                targets,
                 start_year,
                 end_year,
                 additional_condition,
                 top_recent_n,
                 bottom_recent_n,
-                top_syn,
             )
 
             if not articles_df.empty:
@@ -422,7 +645,7 @@ if st.button("🚀 Launch Search"):
             time.sleep(1)
 
         # Combine articles for all compounds if available
-        if combined_articles:
+        if len(combined_articles) > 1:
             st.subheader("Combined Articles for All Compounds and Synonyms")
             all_articles_df = pd.concat(
                 combined_articles, ignore_index=True
@@ -432,4 +655,5 @@ if st.button("🚀 Launch Search"):
             st.info("✅ Done!")
             display_download_button(all_articles_df)
         else:
-            st.warning("No articles found for any of the compounds.")
+            st.info("✅ Done!")
+            display_download_button(articles_df)
