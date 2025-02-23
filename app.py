@@ -689,6 +689,11 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
                     st.success(
                         f"✔️ Articles found for: {get_key_by_value(compounds_dict, compounds)}"
                     )
+                    articles_df["url"] = articles_df["url"].str.replace(
+                        "https://ncbi.nlm.nih.gov/pubmed/",
+                        "https://pubmed.ncbi.nlm.nih.gov/",
+                        regex=False,
+                    )
                     articles_df["compound"] = get_key_by_value(
                         compounds_dict, compounds
                     )
