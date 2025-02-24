@@ -652,32 +652,45 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
             ]
             compounds_dict = {compound: [compound] for compound in compounds}
 
-        if is_valid_json5(targets_input):
-            targets_dict = json5.loads(targets_input)
-            targets = list(targets_dict.keys())
+        # Handle Optional Targets
+        if targets_input.strip():  # Check if targets_input is provided
+            if is_valid_json5(targets_input):
+                targets_dict = json5.loads(targets_input)
+                targets = list(targets_dict.keys())
+            else:
+                targets = [
+                    target.split(",")[0].strip()
+                    for target in targets_input.split("\n")
+                    if target.strip()
+                ]
+                targets_dict = {target: [target] for target in targets}
         else:
-            targets = [
-                target.split(",")[0].strip() for target in targets_input.split("\n")
-            ]
-            targets_dict = {target: [target] for target in targets}
+            targets_dict = {}  # Empty dictionary if no targets provided
+            targets = []  # Empty list
 
         # Display the summary of user-defined configurations
-        display_summary(compounds, targets)
+        display_summary(compounds, targets if targets else ["No targets specified"])
 
         st.info("⏳ Starting article retrieval process...")
         combined_articles = []
 
-        for compounds in list(compounds_dict.values()):
-            for targets in list(targets_dict.values()):
+        for compound_list in compounds_dict.values():
+            if not targets:  # If no targets are specified, search only by compounds
+                search_targets = [None]  # Placeholder to allow iteration
+            else:
+                search_targets = targets_dict.values()
+
+            for target_list in search_targets:
                 st.info(
-                    f"Searching PubMed for compound: {get_key_by_value(compounds_dict, compounds)}"
+                    f"Searching PubMed for compound: {get_key_by_value(compounds_dict, compound_list)}"
+                    + (f" and target: {get_key_by_value(targets_dict, target_list)}" if target_list else "")
                 )
 
                 helper.articleList = []
-                # Process articles for each search term (compound and synonyms)
+                # Process articles for each search term (compound and optional targets)
                 articles_df = helper.process_compound_and_targets(
-                    compounds,
-                    targets,
+                    compound_list,
+                    target_list if target_list else [],  # Ensure an empty list if no targets
                     start_year,
                     end_year,
                     additional_condition,
@@ -687,7 +700,8 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
 
                 if not articles_df.empty:
                     st.success(
-                        f"✔️ Articles found for: {get_key_by_value(compounds_dict, compounds)}"
+                        f"✔️ Articles found for: {get_key_by_value(compounds_dict, compound_list)}"
+                        + (f" and {get_key_by_value(targets_dict, target_list)}" if target_list else "")
                     )
                     articles_df["url"] = articles_df["url"].str.replace(
                         "https://ncbi.nlm.nih.gov/pubmed/",
@@ -695,17 +709,16 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
                         regex=False,
                     )
                     articles_df["compound"] = get_key_by_value(
-                        compounds_dict, compounds
+                        compounds_dict, compound_list
                     )
-                    articles_df["target"] = get_key_by_value(targets_dict, targets)
-                    articles_df.reset_index(
-                        drop=True, inplace=True
-                    )  # Tag articles with compound name
+                    articles_df["target"] = get_key_by_value(targets_dict, target_list) if target_list else "N/A"
+                    articles_df.reset_index(drop=True, inplace=True)
                     st.dataframe(articles_df)
                     combined_articles.append(articles_df)
                 else:
                     st.warning(
-                        f"No articles found for compound: {get_key_by_value(compounds_dict, compounds)}"
+                        f"No articles found for compound: {get_key_by_value(compounds_dict, compound_list)}"
+                        + (f" and {get_key_by_value(targets_dict, target_list)}" if target_list else "")
                     )
                 time.sleep(1)
 
