@@ -653,7 +653,7 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
             compounds_dict = {compound: [compound] for compound in compounds}
 
         # Handle Optional Targets
-        if targets_input.strip():  # Check if targets_input is provided
+        if targets_input and targets_input.strip():  # Ensure it's not None before stripping
             if is_valid_json5(targets_input):
                 targets_dict = json5.loads(targets_input)
                 targets = list(targets_dict.keys())
