@@ -713,7 +713,11 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
                     )
                     articles_df["target"] = get_key_by_value(targets_dict, target_list) if target_list else "N/A"
                     articles_df.reset_index(drop=True, inplace=True)
-                    st.dataframe(articles_df)
+                    st.dataframe(articles_df,
+                                column_config={
+                                    "url": st.column_config.LinkColumn()
+                                })
+
                     combined_articles.append(articles_df)
                 else:
                     st.warning(
