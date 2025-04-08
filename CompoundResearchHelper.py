@@ -147,6 +147,7 @@ class CompoundResearchHelper:
                     "journal",
                     "abstract",
                     "year",
+                    "publication_types",
                 ]
                 article_dict = {k: article_dict.get(k, None) for k in keys_to_keep}
                 articles.append(article_dict)
@@ -194,6 +195,7 @@ class CompoundResearchHelper:
         additional_condition,
         top_n,
         bottom_n,
+        article_type_query=None,
     ):
         """
         Process a compound and optional list of genes by performing a PubMed search
@@ -208,7 +210,7 @@ class CompoundResearchHelper:
         additional_condition (str): An additional condition to use in the search.
         top_n (int): The number of top recent articles to select based on the year.
         bottom_n (int): The number of bottom recent articles to select based on the year.
-        top_syn (int): The number of top synonyms to use in the search.
+        article_type_query (str, optional): PubMed article type filter in query format.
 
         Returns:
         pd.DataFrame: A DataFrame containing the top and bottom recent articles, deduplicated by 'title' and 'pmid'.
@@ -217,6 +219,11 @@ class CompoundResearchHelper:
 
         batch_size = 5  # Adjust batch size to avoid long queries
         queries = []
+
+        # Append article type query if provided
+        article_type_condition = (
+            f" AND ({article_type_query})" if article_type_query else ""
+        )
 
         if genes:
             for compound_chunk in [
@@ -228,7 +235,8 @@ class CompoundResearchHelper:
                 ]:
                     query = (
                         f"(({' OR '.join([f'{compound}[Title/Abstract]' for compound in compound_chunk])}) AND "
-                        f"({' OR '.join([f'{gene}[Title/Abstract]' for gene in gene_chunk])})) {additional_condition}"
+                        f"({' OR '.join([f'{gene}[Title/Abstract]' for gene in gene_chunk])})) "
+                        f"{additional_condition}{article_type_condition}"
                     )
                     queries.append(query)
         else:
@@ -236,18 +244,11 @@ class CompoundResearchHelper:
                 compounds[i : i + batch_size]
                 for i in range(0, len(compounds), batch_size)
             ]:
-                query = f"({' OR '.join([f'{compound}[Title/Abstract]' for compound in compound_chunk])}) {additional_condition}"
+                query = (
+                    f"({' OR '.join([f'{compound}[Title/Abstract]' for compound in compound_chunk])}) "
+                    f"{additional_condition}{article_type_condition}"
+                )
                 queries.append(query)
-
-        # if genes:
-        #     queries = [
-        #         f"({synonym}[Title/Abstract]) AND ({gene}[Title/Abstract]) {additional_condition}"
-        #         for synonym, gene in product(compound, genes)
-        #     ]
-        # else:
-        #     queries = [
-        #         f"({compound}[Title/Abstract]) {additional_condition}"
-        #     ]
 
         query_count = 0
         for query in queries:
