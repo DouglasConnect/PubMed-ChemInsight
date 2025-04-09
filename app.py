@@ -197,29 +197,74 @@ def perform_pubmed_search(task):
                         + (f" and target: {target_original}" if target_original else "")
                     )
 
+        # Determine if synonyms were retrieved
+        compounds_have_synonyms = any(
+            len(synonyms) > 1 for synonyms in task["compounds_dict"].values()
+        )
+        targets_have_synonyms = any(
+            len(synonyms) > 1 for synonyms in task["targets_dict"].values()
+        )
+
+        # Generate synonym retrieval message
+        if compounds_have_synonyms and targets_have_synonyms:
+            synonym_message = "Synonyms were retrieved for both compounds and targets."
+        elif compounds_have_synonyms:
+            synonym_message = "Synonyms were retrieved for compounds only."
+        elif targets_have_synonyms:
+            synonym_message = "Synonyms were retrieved for targets only."
+        else:
+            synonym_message = "No synonyms were retrieved for compounds or targets."
+
+        # Extract compounds and targets for the summary
+        compounds = list(task["compounds_dict"].keys())
+        targets = (
+            list(task["targets_dict"].keys())
+            if task["targets_dict"]
+            else ["No targets specified"]
+        )
+
+        # Generate the summary
+        summary = generate_summary(task, compounds, targets)
+
+        # Combine the email body
         if combined_articles:
             all_articles_df = pd.concat(
                 combined_articles, ignore_index=True
             ).drop_duplicates()
             all_articles_df.reset_index(drop=True, inplace=True)
 
-            print(task["email"])
-            csv_path = f"pubmed_results_{task['email'].replace('@', '_')}.csv"
+            csv_path = "pubmed_chminsight_results.csv"
             all_articles_df.to_csv(csv_path, index=False)
+
+            # Create the email body with summary and synonym info
+            email_body = (
+                "Thank you for using PubMed ChemInsight!\n\n"
+                "Please find attached the CSV file with your PubMed search results.\n\n"
+                f"{synonym_message}\n\n"
+                f"{summary}"
+            )
 
             send_email(
                 to_email=task["email"],
                 subject="Your PubMed Search Results",
-                body="Please find attached the CSV file with your PubMed search results.",
+                body=email_body,
                 attachment_path=csv_path,
             )
             if os.path.exists(csv_path):
                 os.remove(csv_path)
         else:
+            # Create the email body for the "no articles found" case
+            email_body = (
+                "Thank you for using PubMed ChemInsight!\n\n"
+                "No articles were found for your search criteria.\n\n"
+                f"{synonym_message}\n\n"
+                f"{summary}"
+            )
+
             send_email(
                 to_email=task["email"],
                 subject="PubMed Search Results",
-                body="No articles were found for your search criteria.",
+                body=email_body,
             )
 
     except Exception as e:
@@ -794,6 +839,48 @@ def display_summary(compounds, targets):
     )
     st.markdown(f"**Year Range:** `{start_year} to {end_year}`")
     st.markdown("---")
+
+
+def generate_summary(task, compounds, targets):
+    """
+    Generate a plain-text summary of the user's selections for inclusion in the email.
+
+    Parameters:
+    task (dict): The task dictionary containing search parameters.
+    compounds (list): List of compound names.
+    targets (list): List of target names.
+
+    Returns:
+    str: A formatted summary string.
+    """
+    summary_lines = ["Summary of Your Selections:\n"]
+
+    summary_lines.append(
+        f"Email Address: {task['email'] if task['email'] else 'Not Provided'}"
+    )
+    summary_lines.append(
+        f"NCBI API Key: {task['api_key'] if task['api_key'] else 'Not Provided'}"
+    )
+
+    compounds_str = ", ".join(compounds) if compounds else "Not Provided"
+    summary_lines.append(f"Compounds List: {compounds_str}")
+
+    targets_str = ", ".join(targets) if targets else "Not Provided"
+    summary_lines.append(f"Interaction Targets List: {targets_str}")
+
+    keywords_str = (
+        ", ".join(task["additional_keywords_list"])
+        if task["additional_keywords_list"]
+        else "Not Provided"
+    )
+    summary_lines.append(f"Additional Keywords: {keywords_str}")
+
+    summary_lines.append(
+        f"Number of Articles Per Compound-Target Pair: {task['n_articles_per_pair']}"
+    )
+    summary_lines.append(f"Year Range: {task['start_year']} to {task['end_year']}")
+
+    return "\n".join(summary_lines)
 
 
 @st.fragment
