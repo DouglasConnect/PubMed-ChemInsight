@@ -1,6 +1,5 @@
 import re
 import ast
-import math
 import json
 import json5
 import base64
@@ -84,17 +83,44 @@ def send_email(to_email, subject, body, attachment_path=None):
         logger.error(f"Error sending email: {e}")
 
 
+def safe_parse_publication_types(x):
+    try:
+        if isinstance(x, dict):
+            # Handle nested dictionaries or unexpected formats
+            values = []
+            for v in x.values():
+                if isinstance(v, (list, dict)):
+                    values.append(str(v))
+                else:
+                    values.append(v)
+            return ", ".join(values)
+        elif isinstance(x, str) and x.strip().startswith("{"):
+            parsed = ast.literal_eval(x)
+            if isinstance(parsed, dict):
+                values = []
+                for v in parsed.values():
+                    if isinstance(v, (list, dict)):
+                        values.append(str(v))
+                    else:
+                        values.append(v)
+                return ", ".join(values)
+            else:
+                return x
+        else:
+            return x
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to parse publication_types: {x}, error: {e}")
+        return str(x)  # Convert to string as a fallback
+
+
 # Function to perform PubMed search in the background
 def perform_pubmed_search(task):
     try:
-        # Set Entrez email and API key for this task
         Entrez.email = task["email"]
         if task["api_key"]:
             Entrez.api_key = task["api_key"]
 
         helper = CompoundResearchHelper()
-
-        # Prepare additional condition
         additional_condition = (
             f"AND ({' OR '.join([f'{kw}[Title/Abstract]' for kw in task['additional_keywords_list']])})"
             if task["additional_keywords_list"]
@@ -103,65 +129,72 @@ def perform_pubmed_search(task):
 
         combined_articles = []
 
-        for compound_list in task["compounds_dict"].values():
+        for compound_original, compound_synonyms in task["compounds_dict"].items():
             if not task["targets_dict"]:
-                search_targets = [None]
+                target_pairs = [(None, None)]
             else:
-                search_targets = task["targets_dict"].values()
+                target_pairs = list(task["targets_dict"].items())
 
-            for target_list in search_targets:
+            for target_original, target_synonyms in target_pairs:
                 logger.info(
-                    f"Searching PubMed for compound: {get_key_by_value(task['compounds_dict'], compound_list)}"
-                    + (
-                        f" and target: {get_key_by_value(task['targets_dict'], target_list)}"
-                        if target_list
-                        else ""
-                    )
+                    f"🔎 Searching PubMed for compound: {compound_original}"
+                    + (f" and target: {target_original}" if target_original else "")
                 )
 
                 helper.articleList = []
                 articles_df = helper.process_compound_and_targets(
-                    compound_list,
-                    target_list if target_list else [],
-                    task["start_year"],
-                    task["end_year"],
-                    additional_condition,
-                    task["top_recent_n"],
-                    task["bottom_recent_n"],
-                    task["article_type_query"],
+                    compounds=compound_synonyms,
+                    genes=target_synonyms if target_synonyms else [],
+                    start_year=task["start_year"],
+                    end_year=task["end_year"],
+                    additional_condition=additional_condition,
+                    n_articles=task["n_articles_per_pair"],
+                    article_type_query=task["article_type_query"],
                 )
 
                 if not articles_df.empty:
+                    # Fix URL formatting
                     articles_df["url"] = articles_df["url"].str.replace(
                         "https://ncbi.nlm.nih.gov/pubmed/",
                         "https://pubmed.ncbi.nlm.nih.gov/",
                         regex=False,
                     )
+
                     articles_df["compound"] = get_key_by_value(
-                        task["compounds_dict"], compound_list
+                        task["compounds_dict"], compound_synonyms
                     )
                     articles_df["target"] = (
-                        get_key_by_value(task["targets_dict"], target_list)
-                        if target_list
+                        get_key_by_value(task["targets_dict"], target_synonyms)
+                        if target_synonyms
                         else "N/A"
                     )
                     articles_df.reset_index(drop=True, inplace=True)
                     articles_df["publication_types"] = articles_df[
                         "publication_types"
-                    ].apply(
-                        lambda x: ", ".join(ast.literal_eval(x).values())
-                        if isinstance(x, str)
-                        else ""
-                    )
+                    ].apply(safe_parse_publication_types)
+
+                    # Convert unhashable types (lists and dictionaries) to strings
+                    for col in articles_df.columns:
+                        # Check for lists
+                        if articles_df[col].apply(lambda x: isinstance(x, list)).any():
+                            articles_df[col] = articles_df[col].apply(
+                                lambda x: ", ".join(map(str, x))
+                                if isinstance(x, list)
+                                else x
+                            )
+                        # Check for dictionaries
+                        if articles_df[col].apply(lambda x: isinstance(x, dict)).any():
+                            articles_df[col] = articles_df[col].apply(
+                                lambda x: ", ".join(f"{k}: {v}" for k, v in x.items())
+                                if isinstance(x, dict)
+                                else x
+                            )
+
                     combined_articles.append(articles_df)
                 else:
                     logger.warning(
-                        f"No articles found for compound: {get_key_by_value(task['compounds_dict'], compound_list)}"
-                        + (
-                            f" and {get_key_by_value(task['targets_dict'], target_list)}"
-                            if target_list
-                            else ""
-                        )
+                        f"⚠️ No articles found for compound: {compound_original}"
+                        + (f" and target: {target_original}" if target_original else "")
                     )
 
         if combined_articles:
@@ -170,23 +203,19 @@ def perform_pubmed_search(task):
             ).drop_duplicates()
             all_articles_df.reset_index(drop=True, inplace=True)
 
-            # Save to CSV
+            print(task["email"])
             csv_path = f"pubmed_results_{task['email'].replace('@', '_')}.csv"
             all_articles_df.to_csv(csv_path, index=False)
 
-            # Send email with results
             send_email(
                 to_email=task["email"],
                 subject="Your PubMed Search Results",
                 body="Please find attached the CSV file with your PubMed search results.",
                 attachment_path=csv_path,
             )
-
-            # Clean up
             if os.path.exists(csv_path):
                 os.remove(csv_path)
         else:
-            # Send email with no results
             send_email(
                 to_email=task["email"],
                 subject="PubMed Search Results",
@@ -194,7 +223,7 @@ def perform_pubmed_search(task):
             )
 
     except Exception as e:
-        logger.error(f"Error during PubMed search: {e}")
+        logger.error(f"❌ Error during PubMed search: {e}")
 
 
 # Background worker function
@@ -384,7 +413,17 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
-top_syn = st.sidebar.slider("Synonym Inclusion Percentage (%)", 0, 100, 10)
+
+# New inputs for synonyms and articles
+num_synonyms_per_compound = st.sidebar.number_input(
+    "Number of Synonyms per Compound", min_value=0, value=5, step=1
+)
+num_synonyms_per_target = st.sidebar.number_input(
+    "Number of Synonyms per Target", min_value=0, value=5, step=1
+)
+n_articles_per_pair = st.sidebar.number_input(
+    "Number of Articles per Compound-Target Pair", min_value=1, value=10, step=1
+)
 
 # Session state initialization (unchanged)
 if "compounds_synonyms_dict" not in st.session_state:
@@ -472,13 +511,10 @@ with col2:
                 try:
                     synonyms = helper.get_compound_synonyms(resolved_name)
                     filtered_synonyms = [syn for syn in synonyms if syn.strip()]
-                    cpd_num_to_keep = max(
-                        1, math.ceil(len(filtered_synonyms) * top_syn / 100)
-                    )
-                    filtered_synonyms = filtered_synonyms[:cpd_num_to_keep]
+                    filtered_synonyms = filtered_synonyms[:num_synonyms_per_compound]
                     if not filtered_synonyms:
                         st.warning(
-                            f"⚠️ No synonyms found for '{resolved_name}'. Increase the top synonyms percentage and try again."
+                            f"⚠️ No synonyms found for '{resolved_name}'. Only the original name will be used."
                         )
                         compounds_synonyms_dict[original_name] = [resolved_name]
                     else:
@@ -582,10 +618,9 @@ with col2:
                     continue
                 synonyms = retriever.get_target_synonyms(target_name, target_type)
                 filtered_target_synonyms = [syn for syn in synonyms if syn.strip()]
-                target_num_to_keep = max(
-                    1, math.ceil(len(filtered_target_synonyms) * top_syn / 100)
-                )
-                filtered_target_synonyms = filtered_target_synonyms[:target_num_to_keep]
+                filtered_target_synonyms = filtered_target_synonyms[
+                    :num_synonyms_per_target
+                ]
                 synonyms_dict[target_name] = [target_name] + filtered_target_synonyms
             if not error_found:
                 st.session_state["error_message"] = None
@@ -610,8 +645,6 @@ additional_condition = (
 )
 
 # Sidebar sliders and inputs (unchanged)
-top_recent_n = st.sidebar.slider("Number of Recent Articles (Top)", 0, 100, 10)
-bottom_recent_n = st.sidebar.slider("Number of Older Articles (Bottom)", 0, 100, 10)
 start_year = st.sidebar.number_input(
     "Start Year",
     value=2000,
@@ -757,10 +790,7 @@ def display_summary(compounds, targets):
     )
     st.markdown(f"**Additional Keywords:** `{keywords_str}`")
     st.markdown(
-        f"**Number of Top Recent Articles:** `{top_recent_n if top_recent_n > 0 else 'Not Selected'}`"
-    )
-    st.markdown(
-        f"**Number of Bottom Recent Articles:** `{bottom_recent_n if bottom_recent_n > 0 else 'Not Selected'}`"
+        f"**Number of Articles Per Compound-Target Pair:** `{n_articles_per_pair}`"
     )
     st.markdown(f"**Year Range:** `{start_year} to {end_year}`")
     st.markdown("---")
@@ -779,9 +809,23 @@ def display_download_button(all_articles_df):
 
 
 def get_key_by_value(dictionary, value):
+    """
+    Safely get the key for a given value, handling lists comparison.
+    """
     for key, val in dictionary.items():
-        if val == value:
-            return key
+        try:
+            # Check if both are lists first
+            if isinstance(val, list) and isinstance(value, list):
+                if sorted(map(str.lower, val)) == sorted(map(str.lower, value)):
+                    return key
+            # If neither is a list, compare directly
+            elif not isinstance(val, list) and not isinstance(value, list):
+                if val == value:
+                    return key
+            # If types don't match (e.g., one is a list, the other isn't), skip
+        except Exception as e:
+            logging.error(f"Error matching key by value: {e}")
+            continue
     return None
 
 
@@ -851,8 +895,7 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
             "compounds_dict": compounds_dict,
             "targets_dict": targets_dict,
             "additional_keywords_list": additional_keywords_list,
-            "top_recent_n": top_recent_n,
-            "bottom_recent_n": bottom_recent_n,
+            "n_articles_per_pair": n_articles_per_pair,
             "start_year": start_year,
             "end_year": end_year,
             "article_type_query": article_type_query,
