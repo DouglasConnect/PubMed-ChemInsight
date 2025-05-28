@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Email configuration (set these in your environment variables)
 EMAIL_ADDRESS = "asmaa@edelweissconnect.com"
-EMAIL_PASSWORD = "mttv jxju ppud itqo"
+EMAIL_PASSWORD = "tkkn pawl qzrb fbke"
 
 # Streamlit App Setup
 st.set_page_config(page_title="PubMed ChemInsight", page_icon="⚗️")
