@@ -52,26 +52,26 @@
             service_account_email: ${{ secrets.GKE_EMAIL }}
             service_account_key: ${{ secrets.GKE_KEY }}
             
-        - name: Configure docker to use the gcloud command-line tool as a credential helper
+        - name: Authenticate Docker to use Artifact Registry
           run: |
-            gcloud auth configure-docker
+            gcloud auth configure-docker europe-docker.pkg.dev
     
         - name: Pull the latest Docker image
           run: |
-            docker pull eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest || true
+            docker pull europe-docker.pkg.dev/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest || true
         - name: Build the Docker image
           run: |
             docker build \
               --pull \
               --file Dockerfile \
-              --cache-from eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest \
-              --tag eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest \
-              --tag eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:$GIT_SHA \
+              --cache-from europe-docker.pkg.dev/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest \
+              --tag europe-docker.pkg.dev/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:latest \
+              --tag europe-docker.pkg.dev/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE:$GIT_SHA \
               --build-arg GIT_REF=${GIT_REF##*/} \
               --build-arg GIT_SHA=$GIT_SHA .
-        - name: Push the Docker image to Google Container Registry
+        - name: Push the Docker image to Artifact Registry
           run: |
-            docker push --all-tags eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE
+            docker push --all-tags europe-docker.pkg.dev/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/$IMAGE
       update-deployment:
         name: Update the deployment
         runs-on: ubuntu-latest
@@ -89,7 +89,7 @@
           working-directory: deployment/production
           run: |
             curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-            kustomize edit set image eu.gcr.io/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/django:$GIT_SHA
+            kustomize edit set image europe-docker.pkg.dev/$GKE_PROJECT/$PROJECT/${GIT_REF##*/}/django:$GIT_SHA
                                    
     
         - name: Commit and push the deployment
