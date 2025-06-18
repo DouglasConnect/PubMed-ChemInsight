@@ -193,6 +193,44 @@ class CompoundResearchHelper:
         logging.info(f"Selected {len(top_articles)} top articles.")
         return top_articles
 
+    ######################################################################################
+    def _escape_pubmed_query(self, term: str) -> str:
+        """Escape special characters for PubMed query syntax."""
+        import re
+
+        return re.sub(r"([^\w\s])", r"\\\1", term)
+
+    def build_term_query(self, term: str, fields: list[str]) -> str:
+        """Build OR-separated field query for a single term."""
+        clean = self._escape_pubmed_query(self._clean_text(term))
+        return " OR ".join(f'"{clean}"[{field}]' for field in fields)
+
+    def get_batch_query(self, terms: list[str], fields: list[str]) -> str:
+        """
+        Construct a PubMed query for a batch of terms without synonyms.
+
+        Args:
+            terms (list[str]): Terms to include in the query.
+            fields (list[str]): PubMed fields like 'Title/Abstract', 'MeSH Terms', etc.
+
+        Returns:
+            str: Combined query string for PubMed.
+        """
+        queries = []
+        for term in terms:
+            clean = self._escape_pubmed_query(self._clean_text(term))
+            queries.extend(f'"{clean}"[{field}]' for field in fields)
+        return " OR ".join(queries)
+
+    def _format_article_type_filter(self, types: list[str]) -> str:
+        allowed = {"review", "clinical trial", "case reports"}
+        valid = [t for t in types if t.lower() in allowed]
+        return (
+            f" AND ({' OR '.join(f'{t}[Publication Type]' for t in valid)})"
+            if valid
+            else ""
+        )
+
     def process_compound_and_targets(
         self,
         compounds: list,
@@ -202,6 +240,7 @@ class CompoundResearchHelper:
         additional_condition: str,
         n_articles: int,
         article_type_query: str = None,
+        fields: list = ["Title/Abstract", "MeSH Terms", "Substance Name"],
     ) -> pd.DataFrame:
         """Main function to search PubMed and retrieve articles."""
         if not (
@@ -220,28 +259,29 @@ class CompoundResearchHelper:
 
         self.articleList = []
         batch_size = 5
-        queries = []
         article_type_condition = (
-            f" AND ({article_type_query})" if article_type_query else ""
+            self._format_article_type_filter([article_type_query])
+            if article_type_query
+            else ""
         )
 
-        if genes:
-            for c_batch in (
-                compounds[i : i + batch_size]
-                for i in range(0, len(compounds), batch_size)
-            ):
+        queries = []
+        for c_batch in (
+            compounds[i : i + batch_size] for i in range(0, len(compounds), batch_size)
+        ):
+            compound_query = self.get_batch_query(c_batch, fields)
+            if genes:
                 for g_batch in (
                     genes[i : i + batch_size] for i in range(0, len(genes), batch_size)
                 ):
-                    query = f"(({' OR '.join(f'{self._clean_text(c)}[Title/Abstract]' for c in c_batch)}) AND ({' OR '.join(f'{self._clean_text(g)}[Title/Abstract]' for g in g_batch)})){additional_condition}{article_type_condition}"
-                    queries.append(query)
-        else:
-            for c_batch in (
-                compounds[i : i + batch_size]
-                for i in range(0, len(compounds), batch_size)
-            ):
-                query = f"({' OR '.join(f'{self._clean_text(c)}[Title/Abstract]' for c in c_batch)}){additional_condition}{article_type_condition}"
-                queries.append(query)
+                    gene_query = self.get_batch_query(g_batch, ["Title/Abstract"])
+                    full_query = f"(({compound_query}) AND ({gene_query})){additional_condition}{article_type_condition}"
+                    queries.append(full_query)
+            else:
+                full_query = (
+                    f"({compound_query}){additional_condition}{article_type_condition}"
+                )
+                queries.append(full_query)
 
         for idx, query in enumerate(queries, 1):
             self.articleList.extend(
@@ -258,6 +298,74 @@ class CompoundResearchHelper:
 
         logging.warning("No articles retrieved.")
         return pd.DataFrame()
+
+    ######################################################################################
+
+    # def process_compound_and_targets(
+    #     self,
+    #     compounds: list,
+    #     genes: list,
+    #     start_year: int,
+    #     end_year: int,
+    #     additional_condition: str,
+    #     n_articles: int,
+    #     article_type_query: str = None,
+    # ) -> pd.DataFrame:
+    #     """Main function to search PubMed and retrieve articles."""
+    #     if not (
+    #         isinstance(compounds, list) and all(isinstance(c, str) for c in compounds)
+    #     ):
+    #         logging.error("Compounds must be a list of strings.")
+    #         return pd.DataFrame()
+    #     if genes and not (
+    #         isinstance(genes, list) and all(isinstance(g, str) for g in genes)
+    #     ):
+    #         logging.error("Genes must be a list of strings.")
+    #         return pd.DataFrame()
+    #     if start_year > end_year:
+    #         logging.error("Start year cannot be after end year.")
+    #         return pd.DataFrame()
+
+    #     self.articleList = []
+    #     batch_size = 5
+    #     queries = []
+    #     article_type_condition = (
+    #         f" AND ({article_type_query})" if article_type_query else ""
+    #     )
+
+    #     if genes:
+    #         for c_batch in (
+    #             compounds[i : i + batch_size]
+    #             for i in range(0, len(compounds), batch_size)
+    #         ):
+    #             for g_batch in (
+    #                 genes[i : i + batch_size] for i in range(0, len(genes), batch_size)
+    #             ):
+    #                 query = f"(({' OR '.join(f'{self._clean_text(c)}[Title/Abstract]' for c in c_batch)}) AND ({' OR '.join(f'{self._clean_text(g)}[Title/Abstract]' for g in g_batch)})){additional_condition}{article_type_condition}"
+    #                 queries.append(query)
+    #     else:
+    #         for c_batch in (
+    #             compounds[i : i + batch_size]
+    #             for i in range(0, len(compounds), batch_size)
+    #         ):
+    #             query = f"({' OR '.join(f'{self._clean_text(c)}[Title/Abstract]' for c in c_batch)}){additional_condition}{article_type_condition}"
+    #             queries.append(query)
+
+    #     for idx, query in enumerate(queries, 1):
+    #         self.articleList.extend(
+    #             self.fetch_articles(
+    #                 query, retmax=self.retmax, start_year=start_year, end_year=end_year
+    #             )
+    #         )
+    #         if idx % 3 == 0:
+    #             time.sleep(1)
+
+    #     if self.articleList:
+    #         df = pd.DataFrame(self.articleList)
+    #         return self.select_top_articles(df, n_articles)
+
+    #     logging.warning("No articles retrieved.")
+    #     return pd.DataFrame()
 
 
 # import logging

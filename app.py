@@ -992,15 +992,17 @@ if st.button("🚀 Launch Search", help="Click to Start PubMed Search"):
             "api_key": api_key,
         }
 
-    # Check queue size before adding
-    queue_size_before = task_queue.qsize()
-    task_queue.put(task)
+        # Check queue size before adding
+        queue_size_before = task_queue.qsize()
+        task_queue.put(task)
 
-    if queue_size_before == 0:
-        st.success("✅ Your search request has been submitted and is being processed.")
-        st.info("📧 You will receive the results via email within an hour.")
-    else:
-        st.success("📝 Your request has been added to the queue.")
-        st.info(
-            f"⏳ You'll receive the results via email as soon as possible, and no later than 24 hours."
-        )
+        if queue_size_before == 0:
+            st.success(
+                "✅ Your search request has been submitted and is being processed."
+            )
+            st.info("📧 You will receive the results via email within an hour.")
+        else:
+            st.success("📝 Your request has been added to the queue.")
+            st.info(
+                f"⏳ You'll receive the results via email as soon as possible, and no later than 24 hours."
+            )
